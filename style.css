@@ -13,3 +13,9 @@
 .studentRow .gradeBadge{justify-self:start}
 
 .returnBtn{border:1px solid #9ec4ec;border-radius:999px;padding:8px 14px;background:white}
+
+/* Ver.20.2 */
+.btn.refreshBig{font-size:14px;padding:9px 16px;border-radius:999px}
+.historyButtons{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.archiveBadge{display:inline-block;background:#f4eee8;border:1px solid #d9c7b8;color:#7a4b20;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700;margin-bottom:4px}
+.historyActions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
