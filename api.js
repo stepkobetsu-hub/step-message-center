@@ -23,7 +23,9 @@ function jsonp(action, params = {}) {
 async function postJson(payload) {
   const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
   if (!res.ok) throw new Error('送信に失敗しました');
-  return await res.json();
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.message || 'Apps Scriptでエラーが発生しました');
+  return data;
 }
 
 const api = {
