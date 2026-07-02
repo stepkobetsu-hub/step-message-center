@@ -40,6 +40,5 @@ const api = {
   saveTemplate: (payload) => postJson({ action: 'saveTemplate', ...payload }),
   saveTemplateAs: (payload) => postJson({ action: 'saveTemplateAs', ...payload }),
   deleteTemplate: (id) => postJson({ action: 'deleteTemplate', id }),
-  refreshStudents: () => postJson({ action: 'refreshStudents' }),
-  refreshAbsences: () => postJson({ action: 'refreshAbsences' })
+  refreshStudents: () => postJson({ action: 'refreshStudents' })
 };
