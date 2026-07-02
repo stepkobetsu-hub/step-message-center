@@ -91,6 +91,15 @@
             <input type="text" id="nameSearch" class="input" placeholder="例：山田、やまだ、太郎" />
           </div>
 
+          <div class="selected-panel">
+            <div class="selected-panel-head">
+              <strong>現在選択中の生徒（絞り込みを変えても残ります）</strong>
+              <span id="selectedPanelCount">0人</span>
+            </div>
+            <div id="selectedStudentList" class="selected-student-list">まだ選択されていません。</div>
+            <p class="hint selected-hint">例：中2でAさんを選択した後、中3に絞り直してもAさんはここに残ります。</p>
+          </div>
+
           <div class="student-status">
             <span id="studentCountText">読み込み中...</span>
             <strong id="selectedCountText">選択 0人</strong>

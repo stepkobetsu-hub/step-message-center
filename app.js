@@ -1,11 +1,11 @@
 const templates = {
   mada: {
-    subject: '本日の授業について',
-    body: `お世話になります。\n★本日は　{{時間帯}}で授業です。★\nまだお見えになっておりません。\n\nご確認のほどよろしくお願いいたします。\n※ご連絡いただいてる方、行き違いなどご容赦ください。\n\nまた、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。\nhttps://x.gd/WfTJM\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`
+    subject: 'まだお見えになっておりません',
+    body: `{{生徒名}}さん\n\nお世話になります。\n★本日は　{{時間帯}}で授業です。★\nまだお見えになっておりません。\n\nご確認のほどよろしくお願いいたします。\n※ご連絡いただいてる方、行き違いなどご容赦ください。\n\nまた、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。\nhttps://x.gd/WfTJM\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。\n\n個別指導ステップ`
   },
   tokkun: {
     subject: '特訓部屋のお知らせ',
-    body: `★{{日付}}（{{曜日}}）{{時間帯}}　★\nいつもお世話になっております。\n本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。\n確認テストは前回指導内容の理解度の目安です。\nこのため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。\n\n※ご都合が悪い場合、お手数ですが早めに教室までお電話をいただけると幸いです。\n個別指導ステップ {{電話番号}}\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`
+    body: `{{生徒名}}さん\n\n★{{日付}}（{{曜日}}）{{時間帯}}　★\nいつもお世話になっております。\n本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。\n確認テストは前回指導内容の理解度の目安です。\nこのため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。\n\n※ご都合が悪い場合、お手数ですが早めに教室まで「お電話」または「公式LINE」にてご連絡をいただけると幸いです。\n個別指導ステップ {{電話番号}}\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`
   },
   free: {
     subject: '',
@@ -93,23 +93,56 @@ function getFilteredStudents() {
 function renderStudents() {
   const list = getFilteredStudents();
   $('studentCountText').textContent = `${list.length}人表示 / ${students.length}人取得`;
-  $('selectedCountText').textContent = `選択 ${selectedIds.size}人`;
+  updateSelectedView();
+
   if (list.length === 0) {
     $('studentList').innerHTML = '<div class="student-item">該当する生徒がいません。</div>';
     return;
   }
+
   $('studentList').innerHTML = list.map(s => `
-    <label class="student-item">
+    <label class="student-item ${selectedIds.has(s.id) ? 'checked-row' : ''}">
       <input type="checkbox" data-id="${escapeHtml(s.id)}" ${selectedIds.has(s.id) ? 'checked' : ''}>
       <span class="student-name">${escapeHtml(s.name)}</span>
       <span class="student-meta">${escapeHtml(s.school)} / ${escapeHtml(s.grade)}</span>
     </label>
   `).join('');
+
   document.querySelectorAll('#studentList input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', e => {
       if (e.target.checked) selectedIds.add(e.target.dataset.id);
       else selectedIds.delete(e.target.dataset.id);
-      $('selectedCountText').textContent = `選択 ${selectedIds.size}人`;
+      renderStudents();
+      updatePreview();
+    });
+  });
+}
+
+function updateSelectedView() {
+  const selected = students.filter(s => selectedIds.has(s.id));
+  $('selectedCountText').textContent = `選択 ${selected.length}人`;
+  $('selectedPanelCount').textContent = `${selected.length}人`;
+
+  if (selected.length === 0) {
+    $('selectedStudentList').textContent = 'まだ選択されていません。';
+    $('selectedStudentList').classList.add('empty');
+    return;
+  }
+
+  $('selectedStudentList').classList.remove('empty');
+  $('selectedStudentList').innerHTML = selected.map(s => `
+    <span class="selected-chip">
+      <span class="selected-chip-name">${escapeHtml(s.name)}</span>
+      <span class="selected-chip-meta">${escapeHtml(s.grade)} / ${escapeHtml(s.school)}</span>
+      <button type="button" class="remove-selected" data-id="${escapeHtml(s.id)}" aria-label="${escapeHtml(s.name)}を解除">×</button>
+    </span>
+  `).join('');
+
+  document.querySelectorAll('.remove-selected').forEach(btn => {
+    btn.addEventListener('click', e => {
+      selectedIds.delete(e.currentTarget.dataset.id);
+      renderStudents();
+      updatePreview();
     });
   });
 }
@@ -147,7 +180,13 @@ function buildPreviewBody() {
     .replaceAll('{{日付}}', getDateText())
     .replaceAll('{{曜日}}', getWeekday())
     .replaceAll('{{時間帯}}', getTimeText())
-    .replaceAll('{{電話番号}}', '0568-41-8937');
+    .replaceAll('{{電話番号}}', '0568-41-8937')
+    .replaceAll('{{生徒名}}', getPreviewStudentName());
+}
+
+function getPreviewStudentName() {
+  const selected = students.find(s => selectedIds.has(s.id));
+  return selected ? selected.name : '山田太郎';
 }
 
 function updatePreview() {
