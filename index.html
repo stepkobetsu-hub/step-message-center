@@ -6,32 +6,29 @@
   <title>STEP配信システム</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
   <div class="app">
     <header class="header">
-      <h1>STEP配信システム</h1>
-      <p>入退くんメール代替・第1版</p>
+      <div>
+        <h1>STEP配信システム</h1>
+        <p>入退くんメール代替・第1版</p>
+      </div>
+      <span class="badge">MAIL</span>
     </header>
 
     <main class="card">
-
       <section class="section">
-        <label class="label">テンプレート</label>
-        <select id="templateSelect" class="input">
-          <option value="mada">まだお見えになっておりません</option>
-          <option value="tokkun">特訓部屋のお知らせ</option>
-        </select>
+        <label class="label" for="templateSelect">テンプレート</label>
+        <select id="templateSelect" class="input"></select>
       </section>
 
       <section class="section two">
         <div>
-          <label class="label">日付</label>
+          <label class="label" for="dateInput">日付</label>
           <input type="date" id="dateInput" class="input">
         </div>
-
         <div>
-          <label class="label">時間帯</label>
+          <label class="label" for="timeSelect">時間帯</label>
           <select id="timeSelect" class="input">
             <option value="17:10～18:25">17:10～18:25</option>
             <option value="18:35～19:50">18:35～19:50</option>
@@ -42,13 +39,13 @@
       </section>
 
       <section id="customTimeArea" class="section hidden">
-        <label class="label">その他の時間帯</label>
+        <label class="label" for="customTimeInput">その他の時間帯</label>
         <input type="text" id="customTimeInput" class="input" placeholder="例：19:00～20:00">
       </section>
 
       <section class="section">
         <label class="label">校舎</label>
-        <div class="buttons">
+        <div class="buttons" id="schoolButtons">
           <button type="button" class="choice active" data-school="神領校">神領校</button>
           <button type="button" class="choice" data-school="大手町校">大手町校</button>
           <button type="button" class="choice" data-school="全員">全員</button>
@@ -56,31 +53,23 @@
       </section>
 
       <section class="section">
-        <label class="label">学年</label>
+        <label class="label" for="gradeSelect">学年</label>
         <select id="gradeSelect" class="input">
           <option value="全員">全員</option>
-          <option value="小1">小1</option>
-          <option value="小2">小2</option>
-          <option value="小3">小3</option>
-          <option value="小4">小4</option>
-          <option value="小5">小5</option>
-          <option value="小6">小6</option>
-          <option value="中1">中1</option>
-          <option value="中2">中2</option>
-          <option value="中3">中3</option>
-          <option value="高1">高1</option>
-          <option value="高2">高2</option>
-          <option value="高3">高3</option>
+          <option value="小1">小1</option><option value="小2">小2</option><option value="小3">小3</option>
+          <option value="小4">小4</option><option value="小5">小5</option><option value="小6">小6</option>
+          <option value="中1">中1</option><option value="中2">中2</option><option value="中3">中3</option>
+          <option value="高1">高1</option><option value="高2">高2</option><option value="高3">高3</option>
         </select>
       </section>
 
       <section class="section">
-        <label class="label">件名</label>
+        <label class="label" for="subjectInput">件名</label>
         <input type="text" id="subjectInput" class="input">
       </section>
 
       <section class="section">
-        <label class="label">本文</label>
+        <label class="label" for="bodyInput">本文</label>
         <textarea id="bodyInput" class="textarea"></textarea>
       </section>
 
@@ -89,12 +78,8 @@
         <div id="preview" class="preview"></div>
       </section>
 
-      <button id="sendButton" class="send-button">
-        配信する
-      </button>
-
+      <button id="sendButton" class="send-button">配信する</button>
       <p id="statusMessage" class="status"></p>
-
     </main>
   </div>
 
