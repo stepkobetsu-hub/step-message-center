@@ -100,3 +100,84 @@ body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Se
 .attachment-list { margin-top:10px; display:grid; gap:8px; }
 .attachment-row { display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #d7e9fb; background:#fff; border-radius:10px; padding:9px 10px; font-size:13px; }
 .attachment-row button { border:0; border-radius:999px; padding:5px 10px; background:#ffecec; color:#b42318; cursor:pointer; font-weight:800; }
+
+/* Ver.11 テンプレート設定ページ */
+.template-actions-compact {
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+.template-settings-link {
+  font-size: 13px;
+  color: #1459a8;
+  text-decoration: underline;
+  font-weight: 700;
+}
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.template-layout .main-card {
+  min-width: 0;
+}
+.template-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.template-page-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #062a57;
+}
+.template-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+.template-list-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #c9dcf2;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.template-list-item strong,
+.template-list-item span {
+  display: block;
+}
+.template-list-item span {
+  margin-top: 3px;
+  color: #526579;
+  font-size: 13px;
+}
+.template-list-item.active {
+  border-color: #1769c2;
+  background: #eaf4ff;
+}
+.template-editor {
+  min-height: 340px;
+}
+.template-save-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}
+.template-save-button {
+  flex: 1;
+}
+.copy-history-button {
+  margin-top: 10px;
+}
+@media (max-width: 900px) {
+  .template-save-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

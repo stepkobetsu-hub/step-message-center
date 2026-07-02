@@ -35,9 +35,6 @@ function init() {
 
 function bindEvents() {
   $('templateSelect').addEventListener('change', () => { applyTemplate(); updatePreview(); });
-  $('reloadTemplateButton').addEventListener('click', loadTemplates);
-  $('newTemplateButton').addEventListener('click', newTemplate);
-  $('saveTemplateButton').addEventListener('click', saveCurrentTemplate);
 
   $('dateInput').addEventListener('change', () => { updateDateDisplay(); updatePreview(); });
   $('timeSelect').addEventListener('change', () => { toggleCustomTime(); updatePreview(); });

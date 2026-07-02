@@ -51,3 +51,7 @@ function sendSelectedMail(payload) {
 function saveTemplateRequest(payload) {
   return postToApi({ action: 'saveTemplate', ...payload });
 }
+
+function deleteTemplateRequest(payload) {
+  return postToApi({ action: 'deleteTemplate', ...payload });
+}
