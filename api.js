@@ -1,41 +1,31 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyXVtW6Ys3QWSNf8OWO81fXgWDq1-iUYV7j0118oKTetY4r4s0gGen6CMkVOD0uo7E_YQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz9aRZIiaV4Vcz2jEyPsaoxWojUCts13IRR9dHveM8QM8baok0Wjm1jGA_M3lkqmQWRHw/exec';
 
-function getStudentsRequest() {
-  return new Promise((resolve, reject) => {
-    const callbackName = 'stepStudentCallback_' + Date.now();
-    const script = document.createElement('script');
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('生徒一覧の取得がタイムアウトしました。'));
-    }, 15000);
+function getStudents(callback) {
+  const callbackName = 'jsonpCallback_' + Date.now();
 
-    function cleanup() {
-      clearTimeout(timer);
-      delete window[callbackName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
+  window[callbackName] = function(data) {
+    callback(data);
+    delete window[callbackName];
+    script.remove();
+  };
 
-    window[callbackName] = data => {
-      cleanup();
-      resolve(data);
-    };
-
-    script.onerror = () => {
-      cleanup();
-      reject(new Error('生徒一覧を取得できませんでした。Apps Scriptのデプロイを確認してください。'));
-    };
-
-    script.src = `${WEB_APP_URL}?action=getStudents&callback=${callbackName}&t=${Date.now()}`;
-    document.body.appendChild(script);
-  });
+  const script = document.createElement('script');
+  script.src = API_URL + '?action=getStudents&callback=' + callbackName;
+  document.body.appendChild(script);
 }
 
-async function sendSelectedMailRequest(payload) {
-  await fetch(WEB_APP_URL, {
+async function sendSelectedMail(payload) {
+  const response = await fetch(API_URL, {
     method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'sendSelected', ...payload })
+    body: JSON.stringify({
+      action: 'sendSelected',
+      ...payload
+    })
   });
-  return { ok: true };
+
+  if (!response.ok) {
+    throw new Error('送信に失敗しました。');
+  }
+
+  return await response.json();
 }
