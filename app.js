@@ -21,17 +21,20 @@ const DEFAULT_TEMPLATES = [
 ];
 
 const $ = id => document.getElementById(id);
-const ARCHIVE_KEY = 'step_message_center_archived_history_v12';
+const ARCHIVE_KEY = 'step_message_center_archived_history_v19';
+const STUDENTS_CACHE_KEY = 'step_message_center_students_cache_v19';
 
 function init() {
   setToday();
   updateDateDisplay();
   bindEvents();
   setTemplates(DEFAULT_TEMPLATES);
-  loadTemplates();
+  // 最初の表示を速くするため、生徒読み込みを最優先にします。
   loadStudents();
-  loadHistory();
   updatePreview();
+  // テンプレート・履歴は少し後から読み込みます。
+  setTimeout(loadTemplates, 600);
+  setTimeout(loadHistory, 1200);
 }
 
 function bindEvents() {
@@ -87,12 +90,30 @@ function toggleCustomTime() { $('customTimeArea').classList.toggle('hidden', $('
 async function loadStudents() {
   $('studentCountText').textContent = '読み込み中...';
   $('studentList').innerHTML = '';
+
+  // 2回目以降は、前回取得した生徒一覧を先に表示します。
   try {
-    students = await getStudentsRequest();
-    if (!Array.isArray(students)) throw new Error(students.message || '生徒一覧を取得できませんでした。');
+    const cached = JSON.parse(localStorage.getItem(STUDENTS_CACHE_KEY) || '[]');
+    if (Array.isArray(cached) && cached.length) {
+      students = cached;
+      renderStudents();
+      $('studentCountText').textContent = `${students.length}人取得済み（更新確認中...）`;
+    }
+  } catch(e) {}
+
+  try {
+    const result = await getStudentsRequest();
+    const list = normalizeApiList(result, 'students');
+    if (!Array.isArray(list)) throw new Error(result && result.message ? result.message : '生徒一覧を取得できませんでした。');
+    students = list;
+    localStorage.setItem(STUDENTS_CACHE_KEY, JSON.stringify(students));
     students.forEach(s => { if (selectedStudents.has(s.id)) selectedStudents.set(s.id, s); });
     renderStudents();
   } catch (e) {
+    if (students.length) {
+      $('studentCountText').textContent = `${students.length}人取得済み（更新失敗）`;
+      return;
+    }
     $('studentCountText').textContent = '取得失敗';
     $('studentList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`;
   }
@@ -189,8 +210,11 @@ async function sendMail() {
       selectedLabels: selected.map(s => `${s.grade} ${s.name}さん`),
       attachments
     });
-    if (result && result.error) throw new Error(result.message || '送信に失敗しました。');
-    showStatus(`${result.sentCount}件送信しました。`, 'ok');
+    if (!isApiSuccess(result)) {
+      throw new Error((result && (result.message || result.error)) || '送信に失敗しました。');
+    }
+    const sentCount = getSentCount(result, ids.length);
+    showStatus(`送信完了：${sentCount}件`, 'ok');
     selectedStudents.clear(); selectedFiles = [];
     renderAttachmentList(); renderStudents(); updatePreview();
     await loadHistory();
@@ -204,6 +228,7 @@ async function loadHistory() {
   catch (e) { $('historyList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`; }
 }
 function getArchivedIds() { try { return JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]'); } catch(e) { return []; } }
+function setArchivedIds(ids) { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(Array.from(new Set(ids)))); }
 function historyKey(h) { return String(h.id || h.historyId || [h.date, h.subject, h.target, h.count, h.noticeDateText, h.noticeTimeText].join('|')); }
 function renderHistory() {
   const archived = new Set(getArchivedIds());
@@ -220,17 +245,32 @@ function renderHistory() {
   });
   if (list.length === 0) { $('historyList').textContent = '履歴がありません。'; return; }
   $('historyList').innerHTML = list.map(buildHistoryCard).join('');
+  document.querySelectorAll('.archive-history-button').forEach(btn => {
+    btn.addEventListener('click', () => archiveHistoryByKey(btn.dataset.key));
+  });
 }
 function buildHistoryCard(h) {
   const kind = getHistoryKind(h);
   const target = h.target || '送信先不明';
-  const count = h.count || 0;
+  const count = h.count || parseTargetNames(target).length || 0;
+  const key = historyKey(h);
   const sendDate = h.dateDisplay || h.date || '';
   let line = '';
   if (kind === '特訓部屋') line = `特訓部屋のお知らせ${formatNoticeForHistory(h) ? '　' + formatNoticeForHistory(h) : ''}`;
   else if (kind === '未着連絡') line = 'まだお見えになっておりません。'; else line = h.subject || '通常連絡';
   const body = buildActualHistoryBody(h);
-  return `<div class="history-item simple"><div class="history-line">送信日：${escapeHtml(sendDate)}</div><div class="history-main-title">${escapeHtml(line)}</div><div class="history-line history-target-line">送信先：${escapeHtml(target)} / ${escapeHtml(String(count))}件</div><details class="history-details"><summary>本文・詳細を表示</summary><pre>${escapeHtml(body)}</pre></details></div>`;
+  return `<div class="history-item simple"><div class="history-line">送信日：${escapeHtml(sendDate)}</div><div class="history-main-title">${escapeHtml(line)}</div><div class="history-line history-target-line">送信先：${escapeHtml(target)} / ${escapeHtml(String(count))}件</div><details class="history-details"><summary>本文・詳細を表示</summary><pre>${escapeHtml(body)}</pre><div class="history-button-row"><button type="button" class="small-button danger-light archive-history-button" data-key="${escapeHtml(key)}">アーカイブへ移動</button></div></details></div>`;
+}
+
+async function archiveHistoryByKey(key) {
+  if (!key) return;
+  if (!confirm('この送信履歴をアーカイブへ移動しますか？
+※画面の過去履歴から非表示になります。')) return;
+  setArchivedIds([...getArchivedIds(), key]);
+  renderHistory();
+  try {
+    if (typeof archiveHistoryRequest === 'function') await archiveHistoryRequest({ key });
+  } catch(e) { console.warn(e); }
 }
 function buildActualHistoryBody(h) {
   if (h.actualBody) return h.actualBody;
@@ -250,5 +290,27 @@ function showStatus(message, type) { $('statusMessage').textContent = message; $
 function normalizeGrade(v) { return String(v || '').replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, ''); }
 function normalizeText(v) { return String(v || '').toLowerCase().replace(/[ァ-ン]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)).replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, ''); }
 function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch])); }
+
+function normalizeApiList(result, key) {
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result[key])) return result[key];
+  if (result && Array.isArray(result.data)) return result.data;
+  return result;
+}
+
+function isApiSuccess(result) {
+  if (!result) return false;
+  if (result.success === false || result.ok === false || result.error) return false;
+  return true;
+}
+
+function getSentCount(result, fallback) {
+  const candidates = [result.sentCount, result.count, result.sent, result.mailCount, result.successCount];
+  for (const v of candidates) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return fallback;
+}
 
 document.addEventListener('DOMContentLoaded', init);

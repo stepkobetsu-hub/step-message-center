@@ -1,4 +1,4 @@
-STEP Message Center Ver.12
+STEP Message Center Ver.19
 
 【今回の変更】
 1. template.html の右上ボタンを「送信画面へ戻る」に変更

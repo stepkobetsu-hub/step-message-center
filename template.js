@@ -2,7 +2,7 @@ let templates = [];
 let histories = [];
 let currentTemplateId = '';
 const $ = id => document.getElementById(id);
-const ARCHIVE_KEY = 'step_message_center_archived_history_v12';
+const ARCHIVE_KEY = 'step_message_center_archived_history_v19';
 
 function initTemplatePage() {
   bindTemplateEvents();

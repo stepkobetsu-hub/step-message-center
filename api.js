@@ -56,7 +56,7 @@ function deleteTemplateRequest(payload) {
   return postToApi({ action: 'deleteTemplate', ...payload });
 }
 
-// Ver.12: 履歴アーカイブ。Apps Script側に archiveHistory があれば実行、なければ画面側だけで非表示にします。
+// Ver.19: 履歴アーカイブ。Apps Script側に archiveHistory があれば実行、なければ画面側だけで非表示にします。
 function archiveHistoryRequest(payload) {
   return postToApi({ action: 'archiveHistory', ...payload });
 }
