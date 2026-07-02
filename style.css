@@ -60,3 +60,15 @@ body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Se
 
 .selected-hint { margin-top: 8px; }
 .selected-panel #selectedPanelCount { background:#0b5cad; color:#fff; border-radius:999px; padding:5px 10px; font-weight:900; }
+
+/* Ver.7: 選択中の生徒をはっきり表示 */
+.selected-panel { border: 3px solid #0b5cad; background: #eaf5ff; }
+.selected-summary { width: 100%; background: #0b5cad; color: #fff; border-radius: 12px; padding: 10px 12px; font-size: 15px; font-weight: 900; line-height: 1.7; margin-bottom: 10px; }
+.selected-table { width: 100%; display: grid; gap: 8px; }
+.selected-row { display: grid; grid-template-columns: 64px 1fr 90px 60px; gap: 8px; align-items: center; background: #fff; border: 1px solid #8eb7e5; border-radius: 12px; padding: 9px 10px; }
+.grade-badge { display: inline-flex; justify-content: center; align-items: center; background: #ffe8a3; color: #4f3800; font-weight: 900; border-radius: 999px; padding: 5px 8px; }
+.selected-name { font-size: 17px; color: #0b2545; }
+.selected-school { color: #4b6584; font-size: 13px; text-align: right; }
+.remove-selected { width: auto; min-width: 48px; padding: 6px 8px; height: auto; }
+.history-notice { background: #fff3cd; border: 1px solid #f2d37c; color: #533f03; border-radius: 10px; padding: 7px 9px; margin: 7px 0; font-size: 13px; }
+@media (max-width: 640px) { .selected-row { grid-template-columns: 54px 1fr 52px; } .selected-school { display:none; } }

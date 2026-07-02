@@ -15,7 +15,7 @@ const templates = {
 
 let students = [];
 let histories = [];
-const selectedIds = new Set();
+const selectedStudents = new Map();
 
 const $ = id => document.getElementById(id);
 
@@ -41,7 +41,7 @@ function bindEvents() {
   $('nameSearch').addEventListener('input', renderStudents);
   $('reloadButton').addEventListener('click', loadStudents);
   $('selectVisibleButton').addEventListener('click', selectVisibleStudents);
-  $('clearSelectedButton').addEventListener('click', () => { selectedIds.clear(); renderStudents(); });
+  $('clearSelectedButton').addEventListener('click', () => { selectedStudents.clear(); renderStudents(); updatePreview(); });
   $('sendButton').addEventListener('click', sendMail);
   $('historyReloadButton').addEventListener('click', loadHistory);
   $('historySearch').addEventListener('input', renderHistory);
@@ -71,6 +71,10 @@ async function loadStudents() {
   try {
     students = await getStudentsRequest();
     if (!Array.isArray(students)) throw new Error(students.message || '生徒一覧を取得できませんでした。');
+    // 再読込後も、選択済みの生徒情報を最新データで補正する
+    students.forEach(s => {
+      if (selectedStudents.has(s.id)) selectedStudents.set(s.id, s);
+    });
     renderStudents();
   } catch (e) {
     $('studentCountText').textContent = '取得失敗';
@@ -101,17 +105,19 @@ function renderStudents() {
   }
 
   $('studentList').innerHTML = list.map(s => `
-    <label class="student-item ${selectedIds.has(s.id) ? 'checked-row' : ''}">
-      <input type="checkbox" data-id="${escapeHtml(s.id)}" ${selectedIds.has(s.id) ? 'checked' : ''}>
+    <label class="student-item ${selectedStudents.has(s.id) ? 'checked-row' : ''}">
+      <input type="checkbox" data-id="${escapeHtml(s.id)}" ${selectedStudents.has(s.id) ? 'checked' : ''}>
       <span class="student-name">${escapeHtml(s.name)}</span>
-      <span class="student-meta">${escapeHtml(s.school)} / ${escapeHtml(s.grade)}</span>
+      <span class="student-meta">${escapeHtml(s.grade)} / ${escapeHtml(s.school)}</span>
     </label>
   `).join('');
 
   document.querySelectorAll('#studentList input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', e => {
-      if (e.target.checked) selectedIds.add(e.target.dataset.id);
-      else selectedIds.delete(e.target.dataset.id);
+      const id = e.target.dataset.id;
+      const student = students.find(s => s.id === id);
+      if (e.target.checked && student) selectedStudents.set(id, student);
+      else selectedStudents.delete(id);
       renderStudents();
       updatePreview();
     });
@@ -119,9 +125,9 @@ function renderStudents() {
 }
 
 function updateSelectedView() {
-  const selected = students.filter(s => selectedIds.has(s.id));
+  const selected = Array.from(selectedStudents.values()).sort(compareStudent);
   $('selectedCountText').textContent = `選択 ${selected.length}人`;
-  $('selectedPanelCount').textContent = `${selected.length}人`;
+  $('selectedPanelCount').textContent = `${selected.length}人選択中`;
 
   if (selected.length === 0) {
     $('selectedStudentList').textContent = 'まだ選択されていません。';
@@ -130,26 +136,45 @@ function updateSelectedView() {
   }
 
   $('selectedStudentList').classList.remove('empty');
-  $('selectedStudentList').innerHTML = selected.map(s => `
-    <span class="selected-chip">
-      <span class="selected-chip-name">${escapeHtml(s.name)}</span>
-      <span class="selected-chip-meta">${escapeHtml(s.grade)} / ${escapeHtml(s.school)}</span>
-      <button type="button" class="remove-selected" data-id="${escapeHtml(s.id)}" aria-label="${escapeHtml(s.name)}を解除">×</button>
-    </span>
-  `).join('');
+  $('selectedStudentList').innerHTML = `
+    <div class="selected-summary">${escapeHtml(selected.map(s => `${s.grade} ${s.name}さん`).join('、'))}</div>
+    <div class="selected-table">
+      ${selected.map(s => `
+        <div class="selected-row">
+          <span class="grade-badge">${escapeHtml(s.grade)}</span>
+          <strong class="selected-name">${escapeHtml(s.name)}さん</strong>
+          <span class="selected-school">${escapeHtml(s.school)}</span>
+          <button type="button" class="remove-selected" data-id="${escapeHtml(s.id)}">解除</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
 
   document.querySelectorAll('.remove-selected').forEach(btn => {
     btn.addEventListener('click', e => {
-      selectedIds.delete(e.currentTarget.dataset.id);
+      selectedStudents.delete(e.currentTarget.dataset.id);
       renderStudents();
       updatePreview();
     });
   });
 }
 
+function compareStudent(a, b) {
+  return gradeSortValue(a.grade) - gradeSortValue(b.grade) || String(a.school).localeCompare(String(b.school), 'ja') || String(a.name).localeCompare(String(b.name), 'ja');
+}
+
+function gradeSortValue(grade) {
+  const g = normalizeGrade(grade);
+  const m = g.match(/^([小中高])(\d)$/);
+  if (!m) return 999;
+  const base = { '小': 0, '中': 10, '高': 20 }[m[1]];
+  return base + Number(m[2]);
+}
+
 function selectVisibleStudents() {
-  getFilteredStudents().forEach(s => selectedIds.add(s.id));
+  getFilteredStudents().forEach(s => selectedStudents.set(s.id, s));
   renderStudents();
+  updatePreview();
 }
 
 function getDateText() {
@@ -185,7 +210,7 @@ function buildPreviewBody() {
 }
 
 function getPreviewStudentName() {
-  const selected = students.find(s => selectedIds.has(s.id));
+  const selected = Array.from(selectedStudents.values())[0];
   return selected ? selected.name : '山田太郎';
 }
 
@@ -194,13 +219,14 @@ function updatePreview() {
 }
 
 async function sendMail() {
-  const ids = [...selectedIds];
+  const selected = Array.from(selectedStudents.values()).sort(compareStudent);
+  const ids = selected.map(s => s.id);
   if (ids.length === 0) return showStatus('送信対象の生徒を選択してください。', 'error');
   if (!$('subjectInput').value.trim()) return showStatus('件名を入力してください。', 'error');
   if (!buildBody().trim()) return showStatus('本文を入力してください。', 'error');
 
-  const selectedNames = students.filter(s => selectedIds.has(s.id)).map(s => s.name).join('、');
-  const ok = confirm(`以下の生徒に送信します。\n\n${selectedNames}\n\n件名：${$('subjectInput').value}\n\n送信してよろしいですか？`);
+  const selectedNames = selected.map(s => `${s.grade} ${s.name}さん`).join('\n');
+  const ok = confirm(`以下の生徒に送信します。\n\n${selectedNames}\n\n件名：${$('subjectInput').value}\n案内日時：${getDateText()}（${getWeekday()}）${getTimeText()}\n\n送信してよろしいですか？`);
   if (!ok) return;
 
   $('sendButton').disabled = true;
@@ -213,7 +239,9 @@ async function sendMail() {
       body: buildBody(),
       dateText: getDateText(),
       weekday: getWeekday(),
-      timeText: getTimeText()
+      timeText: getTimeText(),
+      selectedNames: selected.map(s => s.name),
+      selectedLabels: selected.map(s => `${s.grade} ${s.name}さん`)
     });
     showStatus(`${result.sentCount}件送信しました。`, 'ok');
     await loadHistory();
@@ -237,19 +265,23 @@ async function loadHistory() {
 
 function renderHistory() {
   const keyword = normalizeText($('historySearch').value);
-  const list = histories.filter(h => !keyword || normalizeText(`${h.target} ${h.subject} ${h.body}`).includes(keyword));
+  const list = histories.filter(h => !keyword || normalizeText(`${h.target} ${h.subject} ${h.body} ${h.noticeDateText} ${h.noticeTimeText}`).includes(keyword));
   if (list.length === 0) {
     $('historyList').textContent = '履歴がありません。';
     return;
   }
-  $('historyList').innerHTML = list.map(h => `
-    <div class="history-item">
-      <div class="history-date">${escapeHtml(h.date)}</div>
-      <div class="history-title">${escapeHtml(h.subject)}</div>
-      <div class="history-target">${escapeHtml(h.target)} / ${escapeHtml(String(h.count))}件</div>
-      <div class="history-body">${escapeHtml((h.body || '').slice(0, 90))}</div>
-    </div>
-  `).join('');
+  $('historyList').innerHTML = list.map(h => {
+    const notice = h.noticeDateText || h.noticeTimeText ? `${h.noticeDateText || ''}${h.weekday ? '（' + h.weekday + '）' : ''} ${h.noticeTimeText || ''}`.trim() : '記録なし';
+    return `
+      <div class="history-item">
+        <div class="history-date">送信日時：${escapeHtml(h.date)}</div>
+        <div class="history-title">${escapeHtml(h.subject)}</div>
+        <div class="history-notice">案内日時：<strong>${escapeHtml(notice)}</strong></div>
+        <div class="history-target">送信先：${escapeHtml(h.target)} / ${escapeHtml(String(h.count))}件</div>
+        <div class="history-body">${escapeHtml((h.bodyPreview || h.body || '').slice(0, 140))}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 function showStatus(message, type) {

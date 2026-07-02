@@ -1,6 +1,6 @@
 // ==================================================
-// STEP配信システム Code.gs Ver.4 完全版
-// 個別送信・自由記述・添付リンク・履歴表示対応
+// STEP配信システム Code.gs Ver.7 完全版
+// 個別送信・自由記述・添付リンク・履歴表示強化
 // ==================================================
 
 const SHEET_SETTING = '設定';
@@ -9,13 +9,28 @@ const SHEET_HISTORY = '配信履歴';
 const SHEET_RESERVATION = '予約送信';
 const MASTER_SHEET_NAME = '☆マスタ';
 
+const HISTORY_HEADERS = [
+  '送信日時',
+  'テンプレートID',
+  '件名',
+  '本文',
+  '対象',
+  '送信件数',
+  '結果',
+  '案内日付',
+  '案内曜日',
+  '案内時間帯',
+  '送信先ID',
+  '送信先表示'
+];
+
 function setupStepMailSystem() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   createSettingSheet_(ss);
   createTemplateSheet_(ss);
   createHistorySheet_(ss);
   createReservationSheet_(ss);
-  SpreadsheetApp.getUi().alert('STEP配信システム Ver.4 の初期設定が完了しました。');
+  SpreadsheetApp.getUi().alert('STEP配信システム Ver.7 の初期設定が完了しました。');
 }
 
 function createSettingSheet_(ss) {
@@ -39,14 +54,17 @@ function createTemplateSheet_(ss) {
   let sheet = ss.getSheetByName(SHEET_TEMPLATE);
   if (!sheet) sheet = ss.insertSheet(SHEET_TEMPLATE);
 
+  // テンプレートは画面側にも持たせています。ここはバックアップ兼管理用です。
   sheet.clear();
   sheet.appendRow(['テンプレートID', 'テンプレート名', '件名', '本文', '使用']);
 
   sheet.appendRow([
     'mada',
     'まだお見えになっておりません',
-    '本日の授業について',
-`お世話になります。
+    'まだお見えになっておりません',
+`{{生徒名}}さん
+
+お世話になります。
 ★本日は　{{時間帯}}で授業です。★
 まだお見えになっておりません。
 
@@ -56,7 +74,9 @@ function createTemplateSheet_(ss) {
 また、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。
 https://x.gd/WfTJM
 
-※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`,
+※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。
+
+個別指導ステップ`,
     true
   ]);
 
@@ -64,27 +84,22 @@ https://x.gd/WfTJM
     'tokkun',
     '特訓部屋のお知らせ',
     '特訓部屋のお知らせ',
-`★{{日付}}（{{曜日}}）{{時間帯}}　★
+`{{生徒名}}さん
+
+★{{日付}}（{{曜日}}）{{時間帯}}　★
 いつもお世話になっております。
 本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。
 確認テストは前回指導内容の理解度の目安です。
 このため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。
 
-※ご都合が悪い場合、お手数ですが早めに教室までお電話をいただけると幸いです。
+※ご都合が悪い場合、お手数ですが早めに教室まで「お電話」または「公式LINE」にてご連絡をいただけると幸いです。
 個別指導ステップ {{電話番号}}
 
 ※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`,
     true
   ]);
 
-  sheet.appendRow([
-    'free',
-    '自由記述',
-    '',
-    '',
-    true
-  ]);
-
+  sheet.appendRow(['free', '自由記述', '', '', true]);
   sheet.setFrozenRows(1);
 }
 
@@ -93,12 +108,18 @@ function createHistorySheet_(ss) {
   if (!sheet) sheet = ss.insertSheet(SHEET_HISTORY);
 
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['送信日時', 'テンプレートID', '件名', '本文', '対象', '送信件数', '結果']);
+    sheet.appendRow(HISTORY_HEADERS);
   } else {
-    const header = sheet.getRange(1, 1, 1, Math.max(7, sheet.getLastColumn())).getValues()[0];
+    const currentLastCol = sheet.getLastColumn();
+    const header = sheet.getRange(1, 1, 1, Math.max(currentLastCol, HISTORY_HEADERS.length)).getValues()[0];
     if (header[0] !== '送信日時') {
       sheet.clear();
-      sheet.appendRow(['送信日時', 'テンプレートID', '件名', '本文', '対象', '送信件数', '結果']);
+      sheet.appendRow(HISTORY_HEADERS);
+    } else {
+      // 既存履歴を消さず、足りない列名だけ追加します。
+      for (let i = 0; i < HISTORY_HEADERS.length; i++) {
+        if (!header[i]) sheet.getRange(1, i + 1).setValue(HISTORY_HEADERS[i]);
+      }
     }
   }
   sheet.setFrozenRows(1);
@@ -189,6 +210,7 @@ function sendStepMailToSelected(data) {
     id: header.indexOf('生徒番号'),
     name: header.indexOf('生徒氏名'),
     school: header.indexOf('校舎'),
+    grade: header.indexOf('学年'),
     mail1: header.indexOf('メールアドレス（保護者）'),
     mail2: header.indexOf('メールアドレス２')
   };
@@ -197,6 +219,9 @@ function sendStepMailToSelected(data) {
   let sentCount = 0;
   const errors = [];
   const sentNames = [];
+  const sentLabels = [];
+  const sentIds = [];
+  let firstRenderedBody = '';
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
@@ -205,6 +230,7 @@ function sendStepMailToSelected(data) {
 
     const studentName = row[col.name];
     const school = row[col.school];
+    const grade = normalizeGrade_(row[col.grade]);
     const mail1 = row[col.mail1];
     const mail2 = row[col.mail2];
 
@@ -233,13 +259,30 @@ function sendStepMailToSelected(data) {
       });
       sentCount++;
       sentNames.push(studentName);
+      sentLabels.push(grade ? `${grade} ${studentName}さん` : `${studentName}さん`);
+      sentIds.push(studentId);
+      if (!firstRenderedBody) firstRenderedBody = body;
     } catch (e) {
       errors.push(studentName + '：' + e.message);
     }
   }
 
-  saveHistory_(data.templateId || '', data.subject || '', data.body || '', sentNames.join('、'), sentCount, errors);
-  return { ok: true, sentCount: sentCount, sentNames: sentNames, errors: errors };
+  saveHistory_({
+    templateId: data.templateId || '',
+    subject: data.subject || '',
+    body: data.body || '',
+    bodyPreview: firstRenderedBody || data.body || '',
+    target: sentLabels.join('、') || sentNames.join('、'),
+    sentCount: sentCount,
+    errors: errors,
+    noticeDateText: data.dateText || '',
+    weekday: data.weekday || '',
+    noticeTimeText: data.timeText || '',
+    studentIds: sentIds.join(','),
+    studentLabels: sentLabels.join('、') || sentNames.join('、')
+  });
+
+  return { ok: true, sentCount: sentCount, sentNames: sentNames, sentLabels: sentLabels, errors: errors };
 }
 
 function getHistoryList() {
@@ -248,18 +291,24 @@ function getHistoryList() {
   if (!sheet || sheet.getLastRow() <= 1) return [];
 
   const lastRow = sheet.getLastRow();
-  const startRow = Math.max(2, lastRow - 49);
+  const startRow = Math.max(2, lastRow - 99);
   const numRows = lastRow - startRow + 1;
-  const values = sheet.getRange(startRow, 1, numRows, 7).getValues().reverse();
+  const lastCol = Math.max(sheet.getLastColumn(), HISTORY_HEADERS.length);
+  const values = sheet.getRange(startRow, 1, numRows, lastCol).getValues().reverse();
 
   return values.map(row => ({
-    date: row[0] ? Utilities.formatDate(new Date(row[0]), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm') : '',
+    date: row[0] ? Utilities.formatDate(new Date(row[0]), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss') : '',
     templateId: String(row[1] || ''),
     subject: String(row[2] || ''),
     body: String(row[3] || ''),
-    target: String(row[4] || ''),
+    target: String(row[11] || row[4] || ''),
     count: row[5] || 0,
-    result: String(row[6] || '')
+    result: String(row[6] || ''),
+    noticeDateText: String(row[7] || ''),
+    weekday: String(row[8] || ''),
+    noticeTimeText: String(row[9] || ''),
+    studentIds: String(row[10] || ''),
+    bodyPreview: String(row[12] || row[3] || '')
   }));
 }
 
@@ -278,14 +327,34 @@ function normalizeGrade_(grade) {
     .trim();
 }
 
-function saveHistory_(templateId, subject, body, target, sentCount, errors) {
+function saveHistory_(h) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_HISTORY);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_HISTORY);
-    sheet.appendRow(['送信日時', 'テンプレートID', '件名', '本文', '対象', '送信件数', '結果']);
+    sheet.appendRow(HISTORY_HEADERS);
+  } else {
+    createHistorySheet_(ss);
   }
-  sheet.appendRow([new Date(), templateId, subject, body, target, sentCount, errors.length ? errors.join('\n') : 'OK']);
+
+  // 13列目は画面表示用の本文プレビューです。既存列は残します。
+  if (!sheet.getRange(1, 13).getValue()) sheet.getRange(1, 13).setValue('本文プレビュー');
+
+  sheet.appendRow([
+    new Date(),
+    h.templateId,
+    h.subject,
+    h.body,
+    h.target,
+    h.sentCount,
+    h.errors.length ? h.errors.join('\n') : 'OK',
+    h.noticeDateText,
+    h.weekday,
+    h.noticeTimeText,
+    h.studentIds,
+    h.studentLabels,
+    h.bodyPreview
+  ]);
 }
 
 function doGet(e) {
@@ -307,7 +376,7 @@ function doGet(e) {
   }
 
   return ContentService
-    .createTextOutput('STEP配信システム Apps Script Ver.4 is running.')
+    .createTextOutput('STEP配信システム Apps Script Ver.7 is running.')
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
