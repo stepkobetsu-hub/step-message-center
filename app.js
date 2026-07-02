@@ -21,6 +21,7 @@ const $ = id => document.getElementById(id);
 
 function init() {
   setToday();
+  updateDateDisplay();
   applyTemplate();
   bindEvents();
   loadStudents();
@@ -30,7 +31,7 @@ function init() {
 
 function bindEvents() {
   $('templateSelect').addEventListener('change', () => { applyTemplate(); updatePreview(); });
-  $('dateInput').addEventListener('change', updatePreview);
+  $('dateInput').addEventListener('change', () => { updateDateDisplay(); updatePreview(); });
   $('timeSelect').addEventListener('change', () => { toggleCustomTime(); updatePreview(); });
   $('customTimeInput').addEventListener('input', updatePreview);
   $('subjectInput').addEventListener('input', updatePreview);
@@ -56,6 +57,22 @@ function setToday() {
   const mm = String(today.getMonth() + 1).padStart(2, '0');
   const dd = String(today.getDate()).padStart(2, '0');
   $('dateInput').value = `${yyyy}-${mm}-${dd}`;
+}
+
+
+function getFullDateDisplay() {
+  if (!$('dateInput').value) return '日付未選択';
+  const d = new Date($('dateInput').value + 'T00:00:00');
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+  return `${yyyy}/${mm}/${dd}（${w}）`;
+}
+
+function updateDateDisplay() {
+  const el = $('dateDisplay');
+  if (el) el.textContent = getFullDateDisplay();
 }
 
 function applyTemplate() {
@@ -285,7 +302,7 @@ function renderHistory() {
   const to = $('historyToDate').value;
 
   const list = histories.filter(h => {
-    const hay = normalizeText(`${h.target} ${h.subject} ${h.summary || ''} ${h.noticeDateText} ${h.noticeTimeText} ${h.date}`);
+    const hay = normalizeText(`${h.target} ${h.subject} ${h.summary || ''} ${h.noticeDateText} ${h.noticeTimeText} ${h.dateDisplay || h.date}`);
     if (keyword && !hay.includes(keyword)) return false;
     if (from && (!h.sendDateYmd || h.sendDateYmd < from)) return false;
     if (to && (!h.sendDateYmd || h.sendDateYmd > to)) return false;
@@ -297,16 +314,47 @@ function renderHistory() {
     return;
   }
 
-  $('historyList').innerHTML = list.map(h => {
-    const kind = getHistoryKind(h);
-    return `
-      <div class="history-item simple">
-        <div class="history-kind">${escapeHtml(kind)}</div>
-        <div class="history-summary">${escapeHtml(h.summary || buildHistorySummary(h))}</div>
-        <div class="history-sent">送信日時：${escapeHtml(h.date)}　送信件数：${escapeHtml(String(h.count))}件</div>
-      </div>
-    `;
-  }).join('');
+  $('historyList').innerHTML = list.map(h => buildHistoryCard(h)).join('');
+}
+
+function buildHistoryCard(h) {
+  const kind = getHistoryKind(h);
+  const target = h.target || '送信先不明';
+  const count = h.count || 0;
+  const sendDate = h.dateDisplay || h.date || '';
+  let line = '';
+
+  if (kind === '特訓部屋') {
+    const notice = formatNoticeForHistory(h);
+    line = `特訓部屋のお知らせ${notice ? '　' + notice : ''}`;
+  } else if (kind === '未着連絡') {
+    line = 'まだお見えになっておりません。';
+  } else {
+    line = h.subject || '通常連絡';
+  }
+
+  const body = h.bodyPreview || h.body || '';
+
+  return `
+    <div class="history-item simple">
+      <div class="history-line">送信日時：${escapeHtml(sendDate)}</div>
+      <div class="history-main-title">${escapeHtml(line)}</div>
+      <div class="history-line history-target-line">送信先：${escapeHtml(target)} / ${escapeHtml(String(count))}件</div>
+      <details class="history-details">
+        <summary>本文・詳細を表示</summary>
+        <pre>${escapeHtml(body)}</pre>
+      </details>
+    </div>
+  `;
+}
+
+function formatNoticeForHistory(h) {
+  const date = h.noticeDateText || '';
+  const weekday = h.weekday || '';
+  const time = h.noticeTimeText || '';
+  if (!date && !time) return '';
+  const datePart = date ? `${date}${weekday ? '（' + weekday + '）' : ''}` : '';
+  return `${datePart}${time ? ' ' + time : ''}`.trim();
 }
 
 function getHistoryKind(h) {
