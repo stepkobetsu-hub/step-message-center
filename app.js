@@ -35,19 +35,18 @@ function init() {
 
 function bindEvents() {
   $('templateSelect').addEventListener('change', () => { applyTemplate(); updatePreview(); });
-
   $('dateInput').addEventListener('change', () => { updateDateDisplay(); updatePreview(); });
   $('timeSelect').addEventListener('change', () => { toggleCustomTime(); updatePreview(); });
   $('customTimeInput').addEventListener('input', updatePreview);
   $('subjectInput').addEventListener('input', updatePreview);
   $('bodyInput').addEventListener('input', updatePreview);
   $('linkInput').addEventListener('input', updatePreview);
-
   ['schoolFilter', 'gradeFilter'].forEach(id => $(id).addEventListener('change', renderStudents));
   $('nameSearch').addEventListener('input', renderStudents);
-  $('reloadButton').addEventListener('click', loadStudents);
+  $('reloadButton').addEventListener('click', () => { loadTemplates(); loadStudents(); loadHistory(); });
   $('selectVisibleButton').addEventListener('click', selectVisibleStudents);
   $('clearSelectedButton').addEventListener('click', () => { selectedStudents.clear(); renderStudents(); updatePreview(); });
+  $('visibleCheckAll').addEventListener('change', toggleVisibleAll);
   $('sendButton').addEventListener('click', sendMail);
 
   $('fileInput').addEventListener('change', e => addFiles(Array.from(e.target.files || [])));
@@ -73,25 +72,18 @@ function bindEvents() {
 }
 
 function setToday() {
-  const today = new Date();
-  $('dateInput').value = toYmd(today);
+  $('dateInput').value = toYmd(new Date());
 }
 
 function toYmd(date) {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function getFullDateDisplay() {
   if (!$('dateInput').value) return '日付未選択';
   const d = new Date($('dateInput').value + 'T00:00:00');
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
   const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-  return `${yyyy}/${mm}/${dd}（${w}）`;
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（${w}）`;
 }
 
 function updateDateDisplay() {
@@ -103,18 +95,30 @@ async function loadTemplates() {
     const result = await getTemplatesRequest();
     if (Array.isArray(result) && result.length > 0) {
       setTemplates(result);
-      applyTemplate();
-      updatePreview();
+      $('templateNotice').textContent = '';
+    } else {
+      setTemplates(DEFAULT_TEMPLATES);
+      $('templateNotice').textContent = 'テンプレートを取得できなかったため、初期テンプレートを表示しています。';
     }
   } catch (e) {
+    setTemplates(DEFAULT_TEMPLATES);
+    $('templateNotice').textContent = 'テンプレート取得エラー：初期テンプレートを表示しています。';
     console.warn(e);
   }
+  applyTemplate();
+  updatePreview();
 }
 
 function setTemplates(list) {
-  templates = list.map(t => ({ id: String(t.id), name: String(t.name || t.id), subject: String(t.subject || ''), body: String(t.body || '') }));
+  const current = $('templateSelect').value;
+  templates = list.map(t => ({
+    id: String(t.id),
+    name: String(t.name || t.id),
+    subject: String(t.subject || ''),
+    body: String(t.body || '')
+  }));
   $('templateSelect').innerHTML = templates.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
-  applyTemplate();
+  if (templates.some(t => t.id === current)) $('templateSelect').value = current;
 }
 
 function getCurrentTemplate() {
@@ -128,43 +132,13 @@ function applyTemplate() {
   $('bodyInput').value = t.body || '';
 }
 
-function newTemplate() {
-  $('templateSelect').value = 'free';
-  $('subjectInput').value = '';
-  $('bodyInput').value = '';
-  updatePreview();
-  showStatus('件名・本文を入力して「テンプレート保存」を押してください。', '');
-}
-
-async function saveCurrentTemplate() {
-  const current = getCurrentTemplate();
-  const defaultName = current && current.id !== 'free' ? current.name : '';
-  const name = prompt('テンプレート名を入力してください。', defaultName || $('subjectInput').value || '新しいテンプレート');
-  if (!name) return;
-  const idBase = (current && current.id !== 'free') ? current.id : 'tpl_' + Date.now();
-  try {
-    const result = await saveTemplateRequest({
-      id: idBase,
-      name,
-      subject: $('subjectInput').value,
-      body: $('bodyInput').value
-    });
-    if (result && result.error) throw new Error(result.message || 'テンプレート保存に失敗しました。');
-    showStatus('テンプレートを保存しました。', 'ok');
-    await loadTemplates();
-    $('templateSelect').value = result.id || idBase;
-  } catch (e) {
-    showStatus(e.message, 'error');
-  }
-}
-
 function toggleCustomTime() {
   $('customTimeArea').classList.toggle('hidden', $('timeSelect').value !== 'その他');
 }
 
 async function loadStudents() {
   $('studentCountText').textContent = '読み込み中...';
-  $('studentList').innerHTML = '';
+  $('studentTableBody').innerHTML = '<tr><td colspan="5" class="empty-cell">読み込み中...</td></tr>';
   try {
     students = await getStudentsRequest();
     if (!Array.isArray(students)) throw new Error(students.message || '生徒一覧を取得できませんでした。');
@@ -172,7 +146,7 @@ async function loadStudents() {
     renderStudents();
   } catch (e) {
     $('studentCountText').textContent = '取得失敗';
-    $('studentList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`;
+    $('studentTableBody').innerHTML = `<tr><td colspan="5" class="empty-cell error">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -183,7 +157,7 @@ function getFilteredStudents() {
   return students.filter(s => {
     if (school !== '全校舎' && s.school !== school) return false;
     if (grade !== '全学年' && normalizeGrade(s.grade) !== normalizeGrade(grade)) return false;
-    const hay = normalizeText(`${s.name} ${s.grade} ${s.school}`);
+    const hay = normalizeText(`${s.name} ${s.grade} ${s.school} ${s.id}`);
     if (kw && !hay.includes(kw)) return false;
     return true;
   }).sort(compareStudent);
@@ -193,21 +167,29 @@ function renderStudents() {
   const list = getFilteredStudents();
   $('studentCountText').textContent = `${list.length}人表示 / ${students.length}人取得`;
   updateSelectedDisplay();
+  renderTable(list);
+}
+
+function renderTable(list) {
+  const tbody = $('studentTableBody');
   if (list.length === 0) {
-    $('studentList').innerHTML = '<div class="empty">該当する生徒がいません。</div>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">該当する生徒がいません。</td></tr>';
+    $('visibleCheckAll').checked = false;
+    $('visibleCheckAll').indeterminate = false;
     return;
   }
-  $('studentList').innerHTML = list.map(s => {
+  tbody.innerHTML = list.map(s => {
     const checked = selectedStudents.has(s.id) ? 'checked' : '';
     return `
-      <label class="student-row ${checked ? 'checked' : ''}">
-        <input type="checkbox" data-id="${escapeHtml(s.id)}" ${checked} />
-        <span class="student-name">${escapeHtml(s.name)}</span>
-        <span class="student-meta">${escapeHtml(s.school)} / ${escapeHtml(s.grade)}</span>
-      </label>
-    `;
+      <tr class="${checked ? 'row-selected' : ''}">
+        <td class="check-col"><input type="checkbox" class="student-check" data-id="${escapeHtml(s.id)}" ${checked}></td>
+        <td><strong>${escapeHtml(s.name)}さん</strong></td>
+        <td>${escapeHtml(s.grade || '')}</td>
+        <td>${escapeHtml(s.school || '')}</td>
+        <td>${escapeHtml(s.id || '')}</td>
+      </tr>`;
   }).join('');
-  document.querySelectorAll('#studentList input[type="checkbox"]').forEach(cb => {
+  document.querySelectorAll('.student-check').forEach(cb => {
     cb.addEventListener('change', e => {
       const s = students.find(x => x.id === e.target.dataset.id);
       if (!s) return;
@@ -217,6 +199,22 @@ function renderStudents() {
       updatePreview();
     });
   });
+  updateVisibleCheckState(list);
+}
+
+function updateVisibleCheckState(list = getFilteredStudents()) {
+  const all = list.length > 0 && list.every(s => selectedStudents.has(s.id));
+  const some = list.some(s => selectedStudents.has(s.id));
+  $('visibleCheckAll').checked = all;
+  $('visibleCheckAll').indeterminate = some && !all;
+}
+
+function toggleVisibleAll(e) {
+  const list = getFilteredStudents();
+  if (e.target.checked) list.forEach(s => selectedStudents.set(s.id, s));
+  else list.forEach(s => selectedStudents.delete(s.id));
+  renderStudents();
+  updatePreview();
 }
 
 function updateSelectedDisplay() {
@@ -237,10 +235,8 @@ function updateSelectedDisplay() {
           <strong>${escapeHtml(s.name)}さん</strong>
           <span>${escapeHtml(s.school)}</span>
           <button class="remove-selected" data-id="${escapeHtml(s.id)}" type="button">解除</button>
-        </div>
-      `).join('')}
-    </div>
-  `;
+        </div>`).join('')}
+    </div>`;
   document.querySelectorAll('.remove-selected').forEach(btn => {
     btn.addEventListener('click', e => {
       selectedStudents.delete(e.currentTarget.dataset.id);
@@ -253,14 +249,12 @@ function updateSelectedDisplay() {
 function compareStudent(a, b) {
   return gradeSortValue(a.grade) - gradeSortValue(b.grade) || String(a.school).localeCompare(String(b.school), 'ja') || String(a.name).localeCompare(String(b.name), 'ja');
 }
-
 function gradeSortValue(grade) {
   const g = normalizeGrade(grade);
   const m = g.match(/^([小中高])([1-6])$/);
   if (!m) return 999;
   return ({ 小: 0, 中: 10, 高: 20 }[m[1]] || 99) + Number(m[2]);
 }
-
 function selectVisibleStudents() {
   getFilteredStudents().forEach(s => selectedStudents.set(s.id, s));
   renderStudents();
@@ -298,52 +292,26 @@ function getPreviewStudentName() {
   const selected = Array.from(selectedStudents.values())[0];
   return selected ? selected.name : '山田太郎';
 }
-function updatePreview() {
-  $('preview').textContent = buildPreviewBody();
-}
+function updatePreview() { $('preview').textContent = buildPreviewBody(); }
 
 function addFiles(files) {
   files.forEach(file => {
-    if (!selectedFiles.some(f => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified)) {
-      selectedFiles.push(file);
-    }
+    if (!selectedFiles.some(f => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified)) selectedFiles.push(file);
   });
   $('fileInput').value = '';
   renderAttachmentList();
 }
-
 function renderAttachmentList() {
-  if (selectedFiles.length === 0) {
-    $('attachmentList').textContent = '添付ファイルはありません。';
-    return;
-  }
+  if (selectedFiles.length === 0) { $('attachmentList').textContent = '添付ファイルはありません。'; return; }
   $('attachmentList').innerHTML = selectedFiles.map((f, i) => `
-    <div class="attachment-row">
-      <span>📎 ${escapeHtml(f.name)}（${formatFileSize(f.size)}）</span>
-      <button type="button" data-index="${i}" class="remove-file">削除</button>
-    </div>
-  `).join('');
-  document.querySelectorAll('.remove-file').forEach(btn => {
-    btn.addEventListener('click', e => {
-      selectedFiles.splice(Number(e.currentTarget.dataset.index), 1);
-      renderAttachmentList();
-    });
-  });
+    <div class="attachment-row"><span>📎 ${escapeHtml(f.name)}（${formatFileSize(f.size)}）</span><button type="button" data-index="${i}" class="remove-file">削除</button></div>`).join('');
+  document.querySelectorAll('.remove-file').forEach(btn => btn.addEventListener('click', e => { selectedFiles.splice(Number(e.currentTarget.dataset.index), 1); renderAttachmentList(); }));
 }
-
-function formatFileSize(size) {
-  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`;
-  return `${Math.ceil(size / 1024)}KB`;
-}
-
+function formatFileSize(size) { return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)}MB` : `${Math.ceil(size / 1024)}KB`; }
 function fileToAttachment(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
-      const base64 = dataUrl.split(',')[1] || '';
-      resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', data: base64, size: file.size });
-    };
+    reader.onload = () => resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', data: String(reader.result || '').split(',')[1] || '', size: file.size });
     reader.onerror = () => reject(new Error(`${file.name}を読み込めませんでした。`));
     reader.readAsDataURL(file);
   });
@@ -406,49 +374,34 @@ async function loadHistory() {
     $('historyList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`;
   }
 }
-
 function renderHistory() {
   const keyword = normalizeText($('historySearch').value);
   const from = $('historyFromDate').value;
   const to = $('historyToDate').value;
   const list = histories.filter(h => {
-    const hay = normalizeText(`${h.target} ${h.subject} ${h.noticeDateText} ${h.noticeTimeText} ${h.dateDisplay || h.date}`);
+    const hay = normalizeText(`${h.target} ${h.subject} ${h.noticeDateText} ${h.noticeTimeText} ${h.date || ''}`);
     if (keyword && !hay.includes(keyword)) return false;
     if (from && (!h.sendDateYmd || h.sendDateYmd < from)) return false;
     if (to && (!h.sendDateYmd || h.sendDateYmd > to)) return false;
     return true;
   });
-  if (list.length === 0) {
-    $('historyList').textContent = '履歴がありません。';
-    return;
-  }
-  $('historyList').innerHTML = list.map(buildHistoryCard).join('');
+  $('historyList').innerHTML = list.length ? list.map(buildHistoryCard).join('') : '履歴がありません。';
 }
-
 function buildHistoryCard(h) {
   const kind = getHistoryKind(h);
-  const target = h.target || '送信先不明';
-  const count = h.count || 0;
-  const sendDate = h.dateDisplay || h.date || '';
+  const sendDate = h.date || '';
   let line = '';
   if (kind === '特訓部屋') line = `特訓部屋のお知らせ${formatNoticeForHistory(h) ? '　' + formatNoticeForHistory(h) : ''}`;
   else if (kind === '未着連絡') line = 'まだお見えになっておりません。';
   else line = h.subject || '通常連絡';
-  const body = h.bodyPreview || h.body || '';
   const attach = h.attachmentNames ? `\n\n【添付】\n${h.attachmentNames}` : '';
-  return `
-    <div class="history-item simple">
-      <div class="history-line">送信日：${escapeHtml(sendDate)}</div>
-      <div class="history-main-title">${escapeHtml(line)}</div>
-      <div class="history-line history-target-line">送信先：${escapeHtml(target)} / ${escapeHtml(String(count))}件</div>
-      <details class="history-details">
-        <summary>本文・詳細を表示</summary>
-        <pre>${escapeHtml(body + attach)}</pre>
-      </details>
-    </div>
-  `;
+  return `<div class="history-item simple">
+    <div class="history-line">送信日：${escapeHtml(sendDate)}</div>
+    <div class="history-main-title">${escapeHtml(line)}</div>
+    <div class="history-line history-target-line">送信先：${escapeHtml(h.target || '送信先不明')} / ${escapeHtml(String(h.count || 0))}件</div>
+    <details class="history-details"><summary>本文・詳細を表示</summary><pre>${escapeHtml((h.bodyPreview || h.body || '') + attach)}</pre></details>
+  </div>`;
 }
-
 function formatNoticeForHistory(h) {
   const date = h.noticeDateText || '';
   const weekday = h.weekday || '';
@@ -461,18 +414,9 @@ function getHistoryKind(h) {
   if (h.templateId === 'mada' || String(h.subject || '').includes('まだ')) return '未着連絡';
   return '通常連絡';
 }
-function showStatus(message, type) {
-  $('statusMessage').textContent = message;
-  $('statusMessage').className = `status ${type || ''}`;
-}
-function normalizeGrade(v) {
-  return String(v || '').replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, '');
-}
-function normalizeText(v) {
-  return String(v || '').toLowerCase().replace(/[ァ-ン]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)).replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, '');
-}
-function escapeHtml(v) {
-  return String(v ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
-}
+function showStatus(message, type) { $('statusMessage').textContent = message; $('statusMessage').className = `status ${type || ''}`; }
+function normalizeGrade(v) { return String(v || '').replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, ''); }
+function normalizeText(v) { return String(v || '').toLowerCase().replace(/[ァ-ン]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)).replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, ''); }
+function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch])); }
 
 document.addEventListener('DOMContentLoaded', init);
