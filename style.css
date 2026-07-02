@@ -2,3 +2,12 @@
 @media(max-width:1050px){.grid{grid-template-columns:1fr}.selectedItem{grid-template-columns:auto auto auto 24px}}
 
 .gradeButtons{display:flex;flex-wrap:wrap;gap:6px}.gradeBtn{border:1px solid #9ec4ec;background:white;color:#075aa8;border-radius:999px;padding:7px 11px;font-weight:700;cursor:pointer}.gradeBtn.active{background:#0b63b6;color:white;border-color:#0b63b6}.selectedBox{padding:10px}.selectedBox .toolbar{margin-bottom:6px}
+
+/* Ver.18 additions */
+.gradeActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.gradeBadge,.badge{border-radius:999px;text-align:center;padding:3px 7px;font-weight:800;display:inline-block;min-width:38px}
+.gradeElem{background:#ffdbe1;color:#9b0018}
+.gradeJr{background:#ffe995;color:#5b4300}
+.gradeHigh{background:#dbeafe;color:#075aa8}
+.selectedItem{grid-template-columns:auto auto auto 22px;padding:3px 6px;font-size:12px;min-height:25px}
+.studentRow .gradeBadge{justify-self:start}
