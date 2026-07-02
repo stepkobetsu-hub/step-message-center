@@ -1,20 +1,40 @@
 const W = ['日','月','火','水','木','金','土'];
-let students=[], templates=[], selected=new Map(), currentTemplate=null, files=[];
+let students=[], templates=[], selected=new Map(), currentTemplate=null, files=[], activeGrades=new Set(['全生徒']);
 const $=id=>document.getElementById(id);
 function fmtDate(d){const x=new Date(d+'T00:00:00');return `${d.replaceAll('-','/')}（${W[x.getDay()]}）`}
 function jpShort(d){const x=new Date(d+'T00:00:00');return `${x.getMonth()+1}月${x.getDate()}日（${W[x.getDay()]}）`}
 function today(){return new Date().toISOString().slice(0,10)}
 function timeText(){return $('timeSelect').value==='custom'?$('customTime').value:$('timeSelect').value}
-function gradeMatch(g,f){if(f==='全生徒'||f==='全学年')return true;if(f==='全小学生')return g.startsWith('小');if(f==='全中学生')return g.startsWith('中');if(f==='全高校生')return g.startsWith('高');if(f==='全小学生＆全中学生')return g.startsWith('小')||g.startsWith('中');return g===f}
-function filtered(){const sc=$('schoolFilter').value, gr=$('gradeFilter').value, q=$('nameFilter').value.trim().toLowerCase();return students.filter(s=>(sc==='全校舎'||s.school===sc)&&gradeMatch(s.grade,gr)&&(!q||s.name.toLowerCase().includes(q)))}
+function gradeMatchOne(g,f){if(f==='全生徒'||f==='全学年')return true;if(f==='全小学生')return g.startsWith('小');if(f==='全中学生')return g.startsWith('中');if(f==='全高校生')return g.startsWith('高');return g===f}
+function gradeMatch(g){if(!activeGrades.size || activeGrades.has('全生徒'))return true;return [...activeGrades].some(f=>gradeMatchOne(g,f))}
+function filtered(){const sc=$('schoolFilter').value, q=$('nameFilter').value.trim().toLowerCase();return students.filter(s=>(sc==='全校舎'||s.school===sc)&&gradeMatch(s.grade)&&(!q||s.name.toLowerCase().includes(q)))}
 function renderStudents(){const list=filtered();$('listCount').textContent=`${list.length}人表示 / ${students.length}人取得`; $('studentList').innerHTML=list.map(s=>`<div class="studentRow ${selected.has(s.id)?'selected':''}" data-id="${s.id}"><input type="checkbox" ${selected.has(s.id)?'checked':''}><b>${s.name}</b><span>${s.grade}</span><span>${s.school}</span></div>`).join('')||'<div class="muted" style="padding:12px">該当する生徒がいません。</div>'; document.querySelectorAll('.studentRow').forEach(r=>r.onclick=()=>toggleStudent(r.dataset.id));renderSelected()}
 function toggleStudent(id){const s=students.find(x=>x.id===id); if(!s)return; selected.has(id)?selected.delete(id):selected.set(id,s); renderStudents()}
-function renderSelected(){const arr=[...selected.values()];$('selectedCount').textContent=`${arr.length}人`; $('selectedSummary').classList.toggle('hidden',!arr.length); $('selectedSummary').textContent=arr.map(s=>`${s.grade} ${s.name}さん`).join('、'); $('selectedList').innerHTML=arr.length?arr.map(s=>`<div class="selectedItem"><span class="badge">${s.grade}</span><b>${s.name}さん</b><span>${s.school}</span><button class="btn small" onclick="selected.delete('${s.id}');renderStudents()">×</button></div>`).join(''):'<span class="muted">まだ選択されていません。</span>'}
+function renderSelected(){const arr=[...selected.values()];$('selectedCount').textContent=`${arr.length}人`; $('selectedSummary').classList.add('hidden'); $('selectedList').innerHTML=arr.length?arr.map(s=>`<div class="selectedItem"><span class="badge">${s.grade}</span><b>${s.name}さん</b><span>${s.school}</span><button class="chipX" title="解除" onclick="selected.delete('${s.id}');renderStudents()">×</button></div>`).join(''):'<span class="muted">まだ選択されていません。</span>'}
 function applyTemplate(){const id=$('templateSelect').value; currentTemplate=templates.find(t=>t.id===id); if(!currentTemplate)return; $('subjectInput').value=currentTemplate.subject; $('bodyInput').value=currentTemplate.body; updatePreview()}
 function makeBody(){let b=$('bodyInput').value||''; const d=$('dateInput').value; const t=timeText(); const sample=[...selected.values()][0]?.name||'山田太郎'; return b.replaceAll('{{生徒名}}',sample).replaceAll('{{日付}}',jpShort(d)).replaceAll('{{曜日}}',W[new Date(d+'T00:00:00').getDay()]).replaceAll('{{時間帯}}',t).replaceAll('{{電話番号}}','0568-41-8937')}
 function updatePreview(){ $('preview').textContent=makeBody() }
 function buildAttachments(){return Promise.all(files.map(f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({name:f.name,type:f.type,data:r.result.split(',')[1]});r.onerror=rej;r.readAsDataURL(f)})))}
-async function load(){ $('dateInput').value=today(); syncDate(); students=await api.getStudents(); templates=await api.getTemplates(); $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join(''); applyTemplate(); renderStudents(); loadAbsences() }
+
+const GRADE_OPTIONS=['全生徒','全小学生','全中学生','全高校生','小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3'];
+function renderGradeButtons(){
+  const box=$('gradeButtons');
+  box.innerHTML=GRADE_OPTIONS.map(g=>`<button type="button" class="gradeBtn ${activeGrades.has(g)?'active':''}" data-grade="${g}">${g}</button>`).join('');
+  box.querySelectorAll('.gradeBtn').forEach(btn=>btn.onclick=()=>toggleGrade(btn.dataset.grade));
+}
+function toggleGrade(g){
+  if(g==='全生徒'){
+    activeGrades=new Set(['全生徒']);
+  }else{
+    activeGrades.delete('全生徒');
+    activeGrades.has(g)?activeGrades.delete(g):activeGrades.add(g);
+    if(!activeGrades.size) activeGrades.add('全生徒');
+  }
+  renderGradeButtons();
+  renderStudents();
+}
+
+async function load(){ $('dateInput').value=today(); syncDate(); renderGradeButtons(); students=await api.getStudents(); templates=await api.getTemplates(); $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join(''); applyTemplate(); renderStudents(); loadAbsences() }
 function syncDate(){ $('dateDisplay').value=fmtDate($('dateInput').value) }
 function openNativeDate(){ $('dateInput').showPicker?.(); $('dateInput').click() }
 function showConfirm(){const arr=[...selected.values()]; const title=$('subjectInput').value; const d=jpShort($('dateInput').value); const t=timeText(); let msg=`送信件数：${arr.length}件\n件名：${title}\n`; if((currentTemplate?.id||'').includes('tokkun')) msg+=`案内日時：${d} ${t}\n`; msg+=`\n送信先：\n${arr.map(s=>`${s.grade} ${s.name}さん`).join('、')}`; return confirm(msg)}
@@ -24,4 +44,4 @@ async function loadHistory(){const data=await api.getHistory({from:$('historyFro
 async function archiveHistory(id){if(!confirm('この履歴を画面から非表示にしますか？'))return; await api.archiveHistory(id); loadHistory()}
 async function loadAbsences(){const data=await api.getAbsences();$('absenceList').innerHTML=data.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b><div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>'}
 window.archiveHistory=archiveHistory;
-document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','gradeFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents); $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');loadHistory()}; $('reloadHistory').onclick=loadHistory; $('reloadAbsence').onclick=loadAbsences;});
+document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents); $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');loadHistory()}; $('reloadHistory').onclick=loadHistory; $('reloadAbsence').onclick=loadAbsences;});

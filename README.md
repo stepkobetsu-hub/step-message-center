@@ -1,18 +1,6 @@
-STEP配信システム Ver.16
+STEP配信システム Ver.17
 
-GitHubにアップするファイル:
-- index.html
-- style.css
-- app.js
-- api.js
-- template.html
-- template.js
-- README.md
-
-Apps Scriptに貼るファイル:
-- Code.gs
-
-反映確認:
-- トップに Ver.16 と表示されること
-- 学年に「全中学生」などが出ること
-- 日付欄が 2026/07/03（金）のように1つだけ表示されること
+- 学年をボタン式・複数選択に変更
+- 選択済み生徒をコンパクト表示
+- 全選択解除ボタンを追加
+- 生徒一覧が隠れないように表示方式を変更
