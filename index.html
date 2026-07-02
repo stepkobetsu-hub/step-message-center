@@ -10,7 +10,7 @@
   <div class="app">
     <header class="header">
       <div>
-        <h1>STEP配信システム</h1>
+        <h1>STEP配信システム <span class="version-badge">Ver.15</span></h1>
         <p>個別送信・一括選択・添付・履歴確認</p>
       </div>
       <div class="header-actions">
@@ -162,20 +162,36 @@
       </section>
 
       <aside class="card history-card">
-        <div class="history-head">
-          <h2>最近の配信履歴</h2>
-          <button id="historyReloadButton" class="small-button">更新</button>
+        <div class="side-tabs">
+          <button id="absenceTabButton" class="side-tab active" type="button">欠席連絡</button>
+          <button id="historyTabButton" class="side-tab" type="button">送信履歴</button>
         </div>
-        <div class="section compact">
-          <label class="label">履歴検索</label>
-          <input type="text" id="historySearch" class="input" placeholder="生徒名・件名で検索" />
-          <div class="history-date-range">
-            <div><label class="label mini">送信日From</label><input type="date" id="historyFromDate" class="input" /></div>
-            <div><label class="label mini">送信日To</label><input type="date" id="historyToDate" class="input" /></div>
+
+        <section id="absencePanel" class="side-panel active">
+          <div class="history-head">
+            <h2>欠席・遅刻連絡</h2>
+            <button id="absenceReloadButton" class="small-button">更新</button>
           </div>
-          <button id="historyClearButton" class="small-button full">履歴条件クリア</button>
-        </div>
-        <div id="historyList" class="history-list">読み込み中...</div>
+          <p class="hint">本日以降の連絡を表示します。本日分は色つきです。</p>
+          <div id="absenceList" class="history-list">読み込み中...</div>
+        </section>
+
+        <section id="historyPanel" class="side-panel">
+          <div class="history-head">
+            <h2>最近の配信履歴</h2>
+            <button id="historyReloadButton" class="small-button">更新</button>
+          </div>
+          <div class="section compact">
+            <label class="label">履歴検索</label>
+            <input type="text" id="historySearch" class="input" placeholder="生徒名・件名で検索" />
+            <div class="history-date-range">
+              <div><label class="label mini">送信日From</label><input type="date" id="historyFromDate" class="input" /></div>
+              <div><label class="label mini">送信日To</label><input type="date" id="historyToDate" class="input" /></div>
+            </div>
+            <button id="historyClearButton" class="small-button full">履歴条件クリア</button>
+          </div>
+          <div id="historyList" class="history-list">読み込み中...</div>
+        </section>
       </aside>
     </main>
   </div>

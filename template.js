@@ -13,6 +13,7 @@ function initTemplatePage() {
 function bindTemplateEvents() {
   $('newTemplateButton').addEventListener('click', clearTemplateForm);
   $('saveTemplateButton').addEventListener('click', saveTemplateFromPage);
+  $('saveAsTemplateButton').addEventListener('click', saveTemplateAsFromPage);
   $('deleteTemplateButton').addEventListener('click', deleteTemplateFromPage);
   $('historyReloadButton').addEventListener('click', loadHistoryForPage);
   $('historySearch').addEventListener('input', renderHistoryForPage);
@@ -96,6 +97,26 @@ async function saveTemplateFromPage() {
     if (result && result.error) throw new Error(result.message || '保存に失敗しました。');
     currentTemplateId = result.id;
     showTemplateStatus('保存しました。', 'ok');
+    await loadTemplatesForPage();
+    selectTemplate(currentTemplateId);
+  } catch (e) {
+    showTemplateStatus(e.message, 'error');
+  }
+}
+
+
+async function saveTemplateAsFromPage() {
+  const name = $('templateNameInput').value.trim();
+  const subject = $('templateSubjectInput').value.trim();
+  const body = $('templateBodyInput').value;
+  if (!name) return showTemplateStatus('タイトルを入力してください。', 'error');
+  if (!subject) return showTemplateStatus('件名を入力してください。', 'error');
+  if (!body.trim()) return showTemplateStatus('本文を入力してください。', 'error');
+  try {
+    const result = await saveTemplateRequest({ name, subject, body });
+    if (result && result.error) throw new Error(result.message || '名前をつけて保存に失敗しました。');
+    currentTemplateId = result.id;
+    showTemplateStatus('名前をつけて保存しました。', 'ok');
     await loadTemplatesForPage();
     selectTemplate(currentTemplateId);
   } catch (e) {

@@ -1,6 +1,7 @@
 let templates = [];
 let students = [];
 let histories = [];
+let absences = [];
 let selectedFiles = [];
 const selectedStudents = new Map();
 
@@ -29,6 +30,7 @@ function init() {
   setTemplates(DEFAULT_TEMPLATES);
   loadTemplates();
   loadStudents();
+  loadAbsences();
   loadHistory();
   updatePreview();
 }
@@ -43,7 +45,7 @@ function bindEvents() {
   $('linkInput').addEventListener('input', updatePreview);
   ['schoolFilter', 'gradeFilter'].forEach(id => $(id).addEventListener('change', renderStudents));
   $('nameSearch').addEventListener('input', renderStudents);
-  $('reloadButton').addEventListener('click', () => { loadTemplates(); loadStudents(); loadHistory(); });
+  $('reloadButton').addEventListener('click', () => { loadTemplates(); loadStudents(); loadAbsences(); loadHistory(); });
   $('selectVisibleButton').addEventListener('click', selectVisibleStudents);
   $('clearVisibleButton').addEventListener('click', clearVisibleStudents);
   $('invertVisibleButton').addEventListener('click', invertVisibleStudents);
@@ -61,6 +63,9 @@ function bindEvents() {
     addFiles(Array.from(e.dataTransfer.files || []));
   });
 
+  $('absenceTabButton').addEventListener('click', () => showSidePanel('absence'));
+  $('historyTabButton').addEventListener('click', () => showSidePanel('history'));
+  $('absenceReloadButton').addEventListener('click', loadAbsences);
   $('historyReloadButton').addEventListener('click', loadHistory);
   $('historySearch').addEventListener('input', renderHistory);
   $('historyFromDate').addEventListener('change', renderHistory);
@@ -418,6 +423,43 @@ async function sendMail() {
   } finally {
     $('sendButton').disabled = false;
   }
+}
+
+
+function showSidePanel(panel) {
+  const showAbsence = panel === 'absence';
+  $('absencePanel').classList.toggle('active', showAbsence);
+  $('historyPanel').classList.toggle('active', !showAbsence);
+  $('absenceTabButton').classList.toggle('active', showAbsence);
+  $('historyTabButton').classList.toggle('active', !showAbsence);
+}
+
+async function loadAbsences() {
+  if (!$('absenceList')) return;
+  $('absenceList').textContent = '読み込み中...';
+  try {
+    const result = await getAbsencesRequest();
+    if (!Array.isArray(result)) throw new Error(result.message || '欠席連絡を取得できませんでした。');
+    absences = result;
+    renderAbsences();
+  } catch (e) {
+    $('absenceList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderAbsences() {
+  if (!absences.length) {
+    $('absenceList').textContent = '本日以降の欠席・遅刻連絡はありません。';
+    return;
+  }
+  $('absenceList').innerHTML = absences.map(a => `
+    <div class="absence-item ${a.isToday ? 'today' : ''}">
+      <div class="absence-date">${escapeHtml(a.dateDisplay || '')}</div>
+      <div class="absence-name">${escapeHtml(a.school || '')}　${escapeHtml(a.name || '')}</div>
+      <div class="absence-type">${escapeHtml(a.type || '')}</div>
+      ${a.reason ? `<div class="absence-line">理由：${escapeHtml(a.reason)}</div>` : ''}
+      ${a.other ? `<div class="absence-line">他：${escapeHtml(a.other)}</div>` : ''}
+    </div>`).join('');
 }
 
 async function loadHistory() {

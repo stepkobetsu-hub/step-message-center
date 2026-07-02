@@ -60,3 +60,7 @@ function deleteTemplateRequest(payload) {
 function archiveHistoryRequest(payload) {
   return postToApi({ action: 'archiveHistory', ...payload });
 }
+
+function getAbsencesRequest() {
+  return jsonpRequest('getAbsences');
+}
