@@ -1,11 +1,12 @@
-# STEP Message Center
+# STEP Message Center Ver.3
 
-個別指導STEPの入退くんメール代替システムです。
+個別送信中心のSTEP配信システムです。
 
-## 第1版
+## ファイル
+- index.html
+- style.css
+- app.js
+- api.js
 
-- テンプレート選択
-- 日付・時間帯選択
-- 生徒検索
-- 校舎・学年絞り込み
-- 選択生徒だけにメール配信
+## 注意
+GitHubへ4ファイルを上書き後、ページを Ctrl+F5 で再読み込みしてください。

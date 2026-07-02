@@ -1,35 +1,35 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>STEP配信システム</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
-    <header class="header">
+    <header class="hero">
       <div>
         <h1>STEP配信システム</h1>
-        <p>個別送信中心・入退くんメール代替</p>
+        <p>入退くんメール代替・個別送信用</p>
       </div>
-      <span class="badge">MAIL</span>
+      <span class="badge">Ver.3</span>
     </header>
 
-    <main class="card">
-      <section class="section">
-        <label class="label" for="templateSelect">テンプレート</label>
-        <select id="templateSelect" class="input"></select>
+    <main class="panel">
+      <section class="field">
+        <label>テンプレート</label>
+        <select id="templateSelect"></select>
       </section>
 
-      <section class="section two">
-        <div>
-          <label class="label" for="dateInput">日付</label>
-          <input type="date" id="dateInput" class="input">
+      <section class="grid2">
+        <div class="field">
+          <label>日付</label>
+          <input id="dateInput" type="date" />
         </div>
-        <div>
-          <label class="label" for="timeSelect">時間帯</label>
-          <select id="timeSelect" class="input">
+        <div class="field">
+          <label>時間帯</label>
+          <select id="timeSelect">
             <option value="17:10～18:25">17:10～18:25</option>
             <option value="18:35～19:50">18:35～19:50</option>
             <option value="20:00～21:15">20:00～21:15</option>
@@ -38,29 +38,29 @@
         </div>
       </section>
 
-      <section id="customTimeArea" class="section hidden">
-        <label class="label" for="customTimeInput">その他の時間帯</label>
-        <input type="text" id="customTimeInput" class="input" placeholder="例：19:00～20:00">
+      <section id="customTimeBox" class="field hidden">
+        <label>その他の時間帯</label>
+        <input id="customTimeInput" type="text" placeholder="例：19:00～20:00" />
       </section>
 
-      <section class="section target-box">
-        <div class="target-title-row">
-          <label class="label">送信対象生徒</label>
-          <button type="button" id="reloadStudentsButton" class="small-button">再読込</button>
+      <section class="studentsBox">
+        <div class="boxHeader">
+          <h2>送信対象生徒</h2>
+          <button id="reloadStudents" type="button">再読込</button>
         </div>
 
-        <div class="filters">
-          <div>
-            <label class="mini-label" for="schoolFilter">校舎</label>
-            <select id="schoolFilter" class="input">
+        <div class="grid2">
+          <div class="field">
+            <label>校舎</label>
+            <select id="schoolFilter">
               <option value="全校舎">全校舎</option>
               <option value="神領校">神領校</option>
               <option value="大手町校">大手町校</option>
             </select>
           </div>
-          <div>
-            <label class="mini-label" for="gradeFilter">学年</label>
-            <select id="gradeFilter" class="input">
+          <div class="field">
+            <label>学年</label>
+            <select id="gradeFilter">
               <option value="全学年">全学年</option>
               <option value="小1">小1</option><option value="小2">小2</option><option value="小3">小3</option>
               <option value="小4">小4</option><option value="小5">小5</option><option value="小6">小6</option>
@@ -70,38 +70,39 @@
           </div>
         </div>
 
-        <label class="mini-label" for="studentSearch">氏名検索</label>
-        <input type="text" id="studentSearch" class="input" placeholder="例：山田、やまだ、太郎">
-
-        <div class="target-summary">
-          <span id="studentCount">読み込み中…</span>
-          <span id="selectedCount">選択 0人</span>
+        <div class="field">
+          <label>氏名検索</label>
+          <input id="nameSearch" type="text" placeholder="例：山田、やまだ、太郎" />
         </div>
 
-        <div id="studentList" class="student-list"></div>
+        <div class="studentStatus">
+          <strong id="studentMessage">読み込み中...</strong>
+          <strong id="selectedCount">選択 0人</strong>
+        </div>
+        <div id="studentList" class="studentList"></div>
       </section>
 
-      <section class="section">
-        <label class="label" for="subjectInput">件名</label>
-        <input type="text" id="subjectInput" class="input">
+      <section class="field">
+        <label>件名</label>
+        <input id="subjectInput" type="text" />
       </section>
 
-      <section class="section">
-        <label class="label" for="bodyInput">本文</label>
-        <textarea id="bodyInput" class="textarea"></textarea>
+      <section class="field">
+        <label>本文</label>
+        <textarea id="bodyInput"></textarea>
       </section>
 
-      <section class="section">
-        <label class="label">プレビュー</label>
+      <section class="field">
+        <label>プレビュー</label>
         <div id="preview" class="preview"></div>
       </section>
 
-      <button id="sendButton" class="send-button">選択した生徒に配信する</button>
+      <button id="sendButton" class="sendButton" type="button">選択した生徒に配信する</button>
       <p id="statusMessage" class="status"></p>
     </main>
   </div>
 
-  <script src="api.js"></script>
-  <script src="app.js"></script>
+  <script src="api.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
