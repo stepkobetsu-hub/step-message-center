@@ -11,7 +11,7 @@
     <header class="header">
       <div>
         <h1>STEP配信システム</h1>
-        <p>入退くんメール代替・第1版</p>
+        <p>個別送信中心・入退くんメール代替</p>
       </div>
       <span class="badge">MAIL</span>
     </header>
@@ -43,24 +43,42 @@
         <input type="text" id="customTimeInput" class="input" placeholder="例：19:00～20:00">
       </section>
 
-      <section class="section">
-        <label class="label">校舎</label>
-        <div class="buttons" id="schoolButtons">
-          <button type="button" class="choice active" data-school="神領校">神領校</button>
-          <button type="button" class="choice" data-school="大手町校">大手町校</button>
-          <button type="button" class="choice" data-school="全員">全員</button>
+      <section class="section target-box">
+        <div class="target-title-row">
+          <label class="label">送信対象生徒</label>
+          <button type="button" id="reloadStudentsButton" class="small-button">再読込</button>
         </div>
-      </section>
 
-      <section class="section">
-        <label class="label" for="gradeSelect">学年</label>
-        <select id="gradeSelect" class="input">
-          <option value="全員">全員</option>
-          <option value="小1">小1</option><option value="小2">小2</option><option value="小3">小3</option>
-          <option value="小4">小4</option><option value="小5">小5</option><option value="小6">小6</option>
-          <option value="中1">中1</option><option value="中2">中2</option><option value="中3">中3</option>
-          <option value="高1">高1</option><option value="高2">高2</option><option value="高3">高3</option>
-        </select>
+        <div class="filters">
+          <div>
+            <label class="mini-label" for="schoolFilter">校舎</label>
+            <select id="schoolFilter" class="input">
+              <option value="全校舎">全校舎</option>
+              <option value="神領校">神領校</option>
+              <option value="大手町校">大手町校</option>
+            </select>
+          </div>
+          <div>
+            <label class="mini-label" for="gradeFilter">学年</label>
+            <select id="gradeFilter" class="input">
+              <option value="全学年">全学年</option>
+              <option value="小1">小1</option><option value="小2">小2</option><option value="小3">小3</option>
+              <option value="小4">小4</option><option value="小5">小5</option><option value="小6">小6</option>
+              <option value="中1">中1</option><option value="中2">中2</option><option value="中3">中3</option>
+              <option value="高1">高1</option><option value="高2">高2</option><option value="高3">高3</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="mini-label" for="studentSearch">氏名検索</label>
+        <input type="text" id="studentSearch" class="input" placeholder="例：山田、やまだ、太郎">
+
+        <div class="target-summary">
+          <span id="studentCount">読み込み中…</span>
+          <span id="selectedCount">選択 0人</span>
+        </div>
+
+        <div id="studentList" class="student-list"></div>
       </section>
 
       <section class="section">
@@ -78,7 +96,7 @@
         <div id="preview" class="preview"></div>
       </section>
 
-      <button id="sendButton" class="send-button">配信する</button>
+      <button id="sendButton" class="send-button">選択した生徒に配信する</button>
       <p id="statusMessage" class="status"></p>
     </main>
   </div>

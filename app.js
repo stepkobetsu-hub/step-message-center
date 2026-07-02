@@ -33,7 +33,8 @@ https://x.gd/WfTJM
 };
 
 const el = id => document.getElementById(id);
-let selectedSchool = '神領校';
+let students = [];
+let selectedIds = new Set();
 
 function init() {
   const select = el('templateSelect');
@@ -47,34 +48,104 @@ function init() {
   el('dateInput').valueAsDate = new Date();
   select.value = 'mada';
   applyTemplate();
-  updatePreview();
 
   select.addEventListener('change', () => { applyTemplate(); updatePreview(); });
-  ['dateInput', 'timeSelect', 'customTimeInput', 'subjectInput', 'bodyInput', 'gradeSelect'].forEach(id => {
+  ['dateInput', 'timeSelect', 'customTimeInput', 'subjectInput', 'bodyInput'].forEach(id => {
     el(id).addEventListener('input', updatePreview);
     el(id).addEventListener('change', updatePreview);
+  });
+
+  ['schoolFilter', 'gradeFilter', 'studentSearch'].forEach(id => {
+    el(id).addEventListener('input', renderStudentList);
+    el(id).addEventListener('change', renderStudentList);
   });
 
   el('timeSelect').addEventListener('change', () => {
     el('customTimeArea').classList.toggle('hidden', el('timeSelect').value !== 'その他');
   });
 
-  document.querySelectorAll('.choice').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.choice').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      selectedSchool = btn.dataset.school;
-      updatePreview();
-    });
-  });
-
+  el('reloadStudentsButton').addEventListener('click', loadStudents);
   el('sendButton').addEventListener('click', sendMail);
+
+  updatePreview();
+  loadStudents();
 }
 
 function applyTemplate() {
   const t = templates[el('templateSelect').value];
   el('subjectInput').value = t.subject;
   el('bodyInput').value = t.body;
+}
+
+function normalizeText(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, '');
+}
+
+async function loadStudents() {
+  el('studentCount').textContent = '読み込み中…';
+  el('studentList').innerHTML = '<div class="empty">生徒一覧を読み込んでいます。</div>';
+
+  try {
+    students = await getStudentsRequest();
+    selectedIds = new Set([...selectedIds].filter(id => students.some(s => s.id === id)));
+    renderStudentList();
+  } catch (e) {
+    el('studentCount').textContent = '取得失敗';
+    el('studentList').innerHTML = `<div class="empty error">${e.message}</div>`;
+  }
+}
+
+function getFilteredStudents() {
+  const school = el('schoolFilter').value;
+  const grade = el('gradeFilter').value;
+  const q = normalizeText(el('studentSearch').value);
+
+  return students.filter(s => {
+    if (school !== '全校舎' && s.school !== school) return false;
+    if (grade !== '全学年' && s.grade !== grade) return false;
+    if (q && !normalizeText(s.name).includes(q)) return false;
+    return true;
+  });
+}
+
+function renderStudentList() {
+  const list = getFilteredStudents();
+  el('studentCount').textContent = `表示 ${list.length}人 / 全${students.length}人`;
+  el('selectedCount').textContent = `選択 ${selectedIds.size}人`;
+
+  if (list.length === 0) {
+    el('studentList').innerHTML = '<div class="empty">該当する生徒がいません。</div>';
+    updatePreview();
+    return;
+  }
+
+  el('studentList').innerHTML = list.map(s => `
+    <label class="student-row">
+      <input type="checkbox" value="${escapeHtml(s.id)}" ${selectedIds.has(s.id) ? 'checked' : ''}>
+      <span class="student-name">${escapeHtml(s.name)}</span>
+      <span class="student-meta">${escapeHtml(s.grade)}・${escapeHtml(s.school)}</span>
+    </label>
+  `).join('');
+
+  el('studentList').querySelectorAll('input[type="checkbox"]').forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.checked) selectedIds.add(input.value);
+      else selectedIds.delete(input.value);
+      el('selectedCount').textContent = `選択 ${selectedIds.size}人`;
+      updatePreview();
+    });
+  });
+
+  updatePreview();
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function getTimeText() {
@@ -91,15 +162,22 @@ function getDateParts() {
   return { dateText: `${d.getMonth() + 1}月${d.getDate()}日`, weekday: w };
 }
 
+function getPreviewStudent() {
+  const firstSelected = students.find(s => selectedIds.has(s.id));
+  return firstSelected || { name: '山田太郎', school: el('schoolFilter').value === '大手町校' ? '大手町校' : '神領校' };
+}
+
 function buildBody() {
   const { dateText, weekday } = getDateParts();
-  const phone = selectedSchool === '大手町校' ? '0568-27-9581' : '0568-41-8937';
+  const previewStudent = getPreviewStudent();
+  const phone = previewStudent.school === '大手町校' ? '0568-27-9581' : '0568-41-8937';
+
   return el('bodyInput').value
     .replaceAll('{{日付}}', dateText)
     .replaceAll('{{曜日}}', weekday)
     .replaceAll('{{時間帯}}', getTimeText())
     .replaceAll('{{電話番号}}', phone)
-    .replaceAll('{{生徒名}}', '山田太郎');
+    .replaceAll('{{生徒名}}', previewStudent.name);
 }
 
 function updatePreview() {
@@ -107,7 +185,18 @@ function updatePreview() {
 }
 
 async function sendMail() {
-  if (!confirm('この内容で配信します。よろしいですか？')) return;
+  if (selectedIds.size === 0) {
+    alert('送信対象の生徒を選択してください。');
+    return;
+  }
+
+  const selectedNames = students
+    .filter(s => selectedIds.has(s.id))
+    .map(s => s.name)
+    .join('、');
+
+  const message = `次の${selectedIds.size}人に配信します。\n\n${selectedNames}\n\nよろしいですか？`;
+  if (!confirm(message)) return;
 
   const btn = el('sendButton');
   btn.disabled = true;
@@ -118,15 +207,14 @@ async function sendMail() {
     templateId: el('templateSelect').value,
     subject: el('subjectInput').value,
     body: el('bodyInput').value,
-    school: selectedSchool,
-    grade: el('gradeSelect').value,
+    studentIds: Array.from(selectedIds),
     dateText,
     weekday,
     timeText: getTimeText()
   };
 
   try {
-    await sendMailRequest(payload);
+    await sendSelectedMailRequest(payload);
     el('statusMessage').textContent = '送信処理を受け付けました。配信履歴を確認してください。';
   } catch (e) {
     el('statusMessage').textContent = '送信に失敗しました：' + e.message;
