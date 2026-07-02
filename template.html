@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>テンプレート設定 | STEP配信システム</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    body{margin:0;background:#eef6ff;color:#002b5c;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+    .app{max-width:1280px;margin:0 auto;padding:24px;}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;}
+    .header h1{margin:0 0 6px;font-size:28px;font-weight:800;}
+    .header p{margin:0;color:#31577d;}
+    .card{background:#fff;border:1px solid #b8d4ff;border-radius:16px;box-shadow:0 10px 26px rgba(0,70,130,.08);padding:18px;margin-bottom:16px;}
+    .template-layout{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;}
+    .template-page-head,.history-head,.template-save-row,.history-button-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+    .section{margin-bottom:16px}.compact{margin-bottom:10px}.label{display:block;font-weight:700;margin-bottom:6px}.mini{font-size:12px}
+    .input,.textarea{box-sizing:border-box;width:100%;border:1px solid #a8caff;border-radius:10px;padding:10px 12px;font-size:15px;background:#fff;}
+    .textarea{min-height:180px;line-height:1.6}.template-editor{min-height:230px}.hint{font-size:13px;color:#31577d}
+    .small-button,.link-button{border:1px solid #0b73d9;background:#fff;color:#075aab;border-radius:999px;padding:8px 14px;font-weight:700;text-decoration:none;cursor:pointer;}
+    .send-button{border:none;background:#1269b8;color:#fff;border-radius:12px;padding:12px 22px;font-size:16px;font-weight:800;cursor:pointer;}
+    .danger-light{border-color:#ff8b9d;color:#d70b2d;background:#fff5f7}.full{width:100%;border-radius:10px}
+    .template-list{display:flex;flex-wrap:wrap;gap:8px}.template-list button{border:1px solid #b8d4ff;border-radius:999px;background:#f8fbff;padding:7px 12px;cursor:pointer;font-weight:700}.template-list button.active{background:#1269b8;color:#fff}
+    .history-date-range{display:grid;grid-template-columns:1fr 1fr;gap:8px}.history-item{border:1px solid #c7dcff;border-radius:12px;padding:12px;margin-bottom:10px;background:#fbfdff}.history-main-title{font-weight:800;font-size:17px;margin:4px 0}.history-line{font-size:14px}.history-details summary{cursor:pointer;color:#075aab;font-weight:800;margin-top:8px}.history-details pre{white-space:pre-wrap;background:#fff;border:1px solid #d4e4ff;border-radius:10px;padding:12px;color:#002b5c;line-height:1.45;max-height:360px;overflow:auto}.status.error{color:#d70b2d}.status.ok{color:#027a36}
+    @media(max-width:900px){.template-layout{grid-template-columns:1fr}.header{align-items:flex-start;flex-direction:column}.back-to-send-button{align-self:flex-end}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div>
+        <h1>テンプレート設定</h1>
+        <p>定型文の追加・修正・削除</p>
+      </div>
+      <a class="small-button link-button back-to-send-button" href="index.html">送信画面へ戻る</a>
+    </header>
+
+    <main class="layout template-layout">
+      <section class="card main-card">
+        <div class="section">
+          <div class="template-page-head">
+            <h2>テンプレート一覧</h2>
+            <button id="newTemplateButton" type="button" class="small-button">新規作成</button>
+          </div>
+          <div id="templateList" class="template-list">読み込み中...</div>
+        </div>
+
+        <div class="section">
+          <label class="label">タイトル（画面で選ぶ名前）</label>
+          <input type="text" id="templateNameInput" class="input" placeholder="例：公開模試締切のお知らせ" />
+        </div>
+
+        <div class="section">
+          <label class="label">件名</label>
+          <input type="text" id="templateSubjectInput" class="input" placeholder="メール件名" />
+        </div>
+
+        <div class="section">
+          <label class="label">本文</label>
+          <textarea id="templateBodyInput" class="textarea template-editor" placeholder="本文を入力してください。生徒名を入れたい場所には {{生徒名}} と書けます。"></textarea>
+          <p class="hint">使える差し込み：{{生徒名}} / {{日付}} / {{曜日}} / {{時間帯}} / {{電話番号}}</p>
+        </div>
+
+        <div class="template-save-row">
+          <button id="saveTemplateButton" type="button" class="send-button template-save-button">保存する</button>
+          <button id="deleteTemplateButton" type="button" class="small-button danger-light">削除する</button>
+        </div>
+        <p id="templateStatus" class="status"></p>
+      </section>
+
+      <aside class="card history-card">
+        <div class="history-head">
+          <h2>過去の送信履歴</h2>
+          <button id="historyReloadButton" class="small-button">更新</button>
+        </div>
+        <div class="section compact">
+          <label class="label">履歴検索</label>
+          <input type="text" id="historySearch" class="input" placeholder="生徒名・件名で検索" />
+          <div class="history-date-range">
+            <div>
+              <label class="label mini">送信日From</label>
+              <input type="date" id="historyFromDate" class="input" />
+            </div>
+            <div>
+              <label class="label mini">送信日To</label>
+              <input type="date" id="historyToDate" class="input" />
+            </div>
+          </div>
+          <button id="historyClearButton" class="small-button full">履歴条件クリア</button>
+        </div>
+        <p class="hint">本文を開くと、送信時点の差し込み後本文を確認できます。</p>
+        <div id="historyList" class="history-list">読み込み中...</div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="template.js"></script>
+</body>
+</html>
