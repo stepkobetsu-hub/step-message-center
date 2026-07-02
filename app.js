@@ -1,50 +1,254 @@
-const W = ['日','月','火','水','木','金','土'];
-let students=[], templates=[], selected=new Map(), currentTemplate=null, files=[], activeGrades=new Set(['全生徒']), sortMode='asc';
-const $=id=>document.getElementById(id);
-function fmtDate(d){const x=new Date(d+'T00:00:00');return `${d.replaceAll('-','/')}（${W[x.getDay()]}）`}
-function jpShort(d){const x=new Date(d+'T00:00:00');return `${x.getMonth()+1}月${x.getDate()}日（${W[x.getDay()]}）`}
-function today(){return new Date().toISOString().slice(0,10)}
-function timeText(){return $('timeSelect').value==='custom'?$('customTime').value:$('timeSelect').value}
-function gradeMatchOne(g,f){if(f==='全生徒'||f==='全学年')return true;if(f==='全小学生')return g.startsWith('小');if(f==='全中学生')return g.startsWith('中');if(f==='全高校生')return g.startsWith('高');return g===f}
-function gradeMatch(g){if(!activeGrades.size || activeGrades.has('全生徒'))return true;return [...activeGrades].some(f=>gradeMatchOne(g,f))}
-const GRADE_ORDER=['小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3'];
-function gradeRank(g){const i=GRADE_ORDER.indexOf(g);return i>=0?i:999}
-function gradeClass(g){if(String(g).startsWith('小'))return 'gradeElem';if(String(g).startsWith('中'))return 'gradeJr';if(String(g).startsWith('高'))return 'gradeHigh';return ''}
-function filtered(){const sc=$('schoolFilter').value, q=$('nameFilter').value.trim().toLowerCase();const list=students.filter(s=>(sc==='全校舎'||s.school===sc)&&gradeMatch(s.grade)&&(!q||s.name.toLowerCase().includes(q)));list.sort((a,b)=>{const d=gradeRank(a.grade)-gradeRank(b.grade); if(d) return sortMode==='desc'?-d:d; return a.name.localeCompare(b.name,'ja')});return list}
-function renderStudents(){const list=filtered();$('listCount').textContent=`${list.length}人表示 / ${students.length}人取得`; $('studentList').innerHTML=list.map(s=>`<div class="studentRow ${selected.has(s.id)?'selected':''}" data-id="${s.id}"><input type="checkbox" ${selected.has(s.id)?'checked':''}><b>${s.name}</b><span class="gradeBadge ${gradeClass(s.grade)}">${s.grade}</span><span>${s.school}</span></div>`).join('')||'<div class="muted" style="padding:12px">該当する生徒がいません。</div>'; document.querySelectorAll('.studentRow').forEach(r=>r.onclick=()=>toggleStudent(r.dataset.id));renderSelected()}
-function toggleStudent(id){const s=students.find(x=>x.id===id); if(!s)return; selected.has(id)?selected.delete(id):selected.set(id,s); renderStudents()}
-function renderSelected(){const arr=[...selected.values()];$('selectedCount').textContent=`${arr.length}人`; $('selectedSummary').classList.add('hidden'); $('selectedList').innerHTML=arr.length?arr.map(s=>`<div class="selectedItem"><span class="badge ${gradeClass(s.grade)}">${s.grade}</span><b>${s.name}さん</b><span>${s.school}</span><button class="chipX" title="解除" onclick="selected.delete('${s.id}');renderStudents()">×</button></div>`).join(''):'<span class="muted">まだ選択されていません。</span>'}
-function applyTemplate(){const id=$('templateSelect').value; currentTemplate=templates.find(t=>t.id===id); if(!currentTemplate)return; $('subjectInput').value=currentTemplate.subject; $('bodyInput').value=currentTemplate.body; updatePreview()}
-function makeBody(){let b=$('bodyInput').value||''; const d=$('dateInput').value; const t=timeText(); const sample=[...selected.values()][0]?.name||'山田太郎'; return b.replaceAll('{{生徒名}}',sample).replaceAll('{{日付}}',jpShort(d)).replaceAll('{{曜日}}',W[new Date(d+'T00:00:00').getDay()]).replaceAll('{{時間帯}}',t).replaceAll('{{電話番号}}','0568-41-8937')}
-function updatePreview(){ $('preview').textContent=makeBody() }
-function buildAttachments(){return Promise.all(files.map(f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({name:f.name,type:f.type,data:r.result.split(',')[1]});r.onerror=rej;r.readAsDataURL(f)})))}
+let templates = [];
+let students = [];
+let histories = [];
+let selectedFiles = [];
+const selectedStudents = new Map();
 
-const GRADE_OPTIONS=['全生徒','全小学生','全中学生','全高校生','小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3'];
-function renderGradeButtons(){
-  const box=$('gradeButtons');
-  box.innerHTML=GRADE_OPTIONS.map(g=>`<button type="button" class="gradeBtn ${activeGrades.has(g)?'active':''}" data-grade="${g}">${g}</button>`).join('');
-  box.querySelectorAll('.gradeBtn').forEach(btn=>btn.onclick=()=>toggleGrade(btn.dataset.grade));
+const DEFAULT_TEMPLATES = [
+  {
+    id: 'mada',
+    name: 'まだお見えになっておりません',
+    subject: 'まだお見えになっておりません',
+    body: `{{生徒名}}さん\n\nお世話になります。\n★本日は　{{時間帯}}で授業です。★\nまだお見えになっておりません。\n\nご確認のほどよろしくお願いいたします。\n※ご連絡いただいてる方、行き違いなどご容赦ください。\n\nまた、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。\nhttps://x.gd/WfTJM\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。\n\n個別指導ステップ`
+  },
+  {
+    id: 'tokkun',
+    name: '特訓部屋のお知らせ',
+    subject: '特訓部屋のお知らせ',
+    body: `{{生徒名}}さん\n\n★{{日付}}（{{曜日}}）{{時間帯}}　★\nいつもお世話になっております。\n本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。\n確認テストは前回指導内容の理解度の目安です。\nこのため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。\n\n※ご都合が悪い場合、お手数ですが早めに教室まで「お電話」または「公式LINE」にてご連絡をいただけると幸いです。\n個別指導ステップ {{電話番号}}\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`
+  },
+  { id: 'free', name: '自由記述', subject: '', body: '' }
+];
+
+const $ = id => document.getElementById(id);
+const ARCHIVE_KEY = 'step_message_center_archived_history_v12';
+
+function init() {
+  setToday();
+  updateDateDisplay();
+  bindEvents();
+  setTemplates(DEFAULT_TEMPLATES);
+  loadTemplates();
+  loadStudents();
+  loadHistory();
+  updatePreview();
 }
-function toggleGrade(g){
-  if(g==='全生徒'){
-    activeGrades=new Set(['全生徒']);
-  }else{
-    activeGrades.delete('全生徒');
-    activeGrades.has(g)?activeGrades.delete(g):activeGrades.add(g);
-    if(!activeGrades.size) activeGrades.add('全生徒');
+
+function bindEvents() {
+  $('templateSelect').addEventListener('change', () => { applyTemplate(); updatePreview(); });
+  $('dateInput').addEventListener('change', () => { updateDateDisplay(); updatePreview(); });
+  $('timeSelect').addEventListener('change', () => { toggleCustomTime(); updatePreview(); });
+  $('customTimeInput').addEventListener('input', updatePreview);
+  $('subjectInput').addEventListener('input', updatePreview);
+  $('bodyInput').addEventListener('input', updatePreview);
+  $('linkInput').addEventListener('input', updatePreview);
+  ['schoolFilter', 'gradeFilter'].forEach(id => $(id).addEventListener('change', renderStudents));
+  $('nameSearch').addEventListener('input', renderStudents);
+  $('reloadButton').addEventListener('click', loadStudents);
+  $('selectVisibleButton').addEventListener('click', selectVisibleStudents);
+  $('clearSelectedButton').addEventListener('click', () => { selectedStudents.clear(); renderStudents(); updatePreview(); });
+  $('sendButton').addEventListener('click', sendMail);
+  $('fileInput').addEventListener('change', e => addFiles(Array.from(e.target.files || [])));
+  const dz = $('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); addFiles(Array.from(e.dataTransfer.files || [])); });
+  $('historyReloadButton').addEventListener('click', loadHistory);
+  $('historySearch').addEventListener('input', renderHistory);
+  $('historyFromDate').addEventListener('change', renderHistory);
+  $('historyToDate').addEventListener('change', renderHistory);
+  $('historyClearButton').addEventListener('click', () => { $('historySearch').value = ''; $('historyFromDate').value = ''; $('historyToDate').value = ''; renderHistory(); });
+}
+
+function setToday() { $('dateInput').value = toYmd(new Date()); }
+function toYmd(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
+function getFullDateDisplay() {
+  if (!$('dateInput').value) return '日付未選択';
+  const d = new Date($('dateInput').value + 'T00:00:00');
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（${['日','月','火','水','木','金','土'][d.getDay()]}）`;
+}
+function updateDateDisplay() { $('dateDisplay').textContent = getFullDateDisplay(); }
+
+async function loadTemplates() {
+  try {
+    const result = await getTemplatesRequest();
+    if (Array.isArray(result) && result.length > 0) { setTemplates(result); applyTemplate(); updatePreview(); }
+  } catch (e) { console.warn(e); }
+}
+function setTemplates(list) {
+  templates = list.map(t => ({ id: String(t.id), name: String(t.name || t.id), subject: String(t.subject || ''), body: String(t.body || '') }));
+  $('templateSelect').innerHTML = templates.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
+  applyTemplate();
+}
+function getCurrentTemplate() { return templates.find(t => t.id === $('templateSelect').value) || templates[0] || DEFAULT_TEMPLATES[0]; }
+function applyTemplate() { const t = getCurrentTemplate(); if (!t) return; $('subjectInput').value = t.subject || ''; $('bodyInput').value = t.body || ''; }
+function toggleCustomTime() { $('customTimeArea').classList.toggle('hidden', $('timeSelect').value !== 'その他'); }
+
+async function loadStudents() {
+  $('studentCountText').textContent = '読み込み中...';
+  $('studentList').innerHTML = '';
+  try {
+    students = await getStudentsRequest();
+    if (!Array.isArray(students)) throw new Error(students.message || '生徒一覧を取得できませんでした。');
+    students.forEach(s => { if (selectedStudents.has(s.id)) selectedStudents.set(s.id, s); });
+    renderStudents();
+  } catch (e) {
+    $('studentCountText').textContent = '取得失敗';
+    $('studentList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`;
   }
-  renderGradeButtons();
-  renderStudents();
+}
+function getFilteredStudents() {
+  const school = $('schoolFilter').value;
+  const grade = $('gradeFilter').value;
+  const kw = normalizeText($('nameSearch').value);
+  return students.filter(s => {
+    if (school !== '全校舎' && s.school !== school) return false;
+    if (grade !== '全学年' && normalizeGrade(s.grade) !== normalizeGrade(grade)) return false;
+    const hay = normalizeText(`${s.name} ${s.grade} ${s.school}`);
+    if (kw && !hay.includes(kw)) return false;
+    return true;
+  }).sort(compareStudent);
+}
+function renderStudents() {
+  const list = getFilteredStudents();
+  $('studentCountText').textContent = `${list.length}人表示 / ${students.length}人取得`;
+  updateSelectedDisplay();
+  if (list.length === 0) { $('studentList').innerHTML = '<div class="empty">該当する生徒がいません。</div>'; return; }
+  $('studentList').innerHTML = list.map(s => {
+    const checked = selectedStudents.has(s.id) ? 'checked' : '';
+    return `<label class="student-row ${checked ? 'checked' : ''}"><input type="checkbox" data-id="${escapeHtml(s.id)}" ${checked} /><span class="student-name">${escapeHtml(s.name)}</span><span class="student-meta">${escapeHtml(s.school)} / ${escapeHtml(s.grade)}</span></label>`;
+  }).join('');
+  document.querySelectorAll('#studentList input[type="checkbox"]').forEach(cb => cb.addEventListener('change', e => {
+    const s = students.find(x => x.id === e.target.dataset.id);
+    if (!s) return;
+    if (e.target.checked) selectedStudents.set(s.id, s); else selectedStudents.delete(s.id);
+    renderStudents(); updatePreview();
+  }));
+}
+function updateSelectedDisplay() {
+  const selected = Array.from(selectedStudents.values()).sort(compareStudent);
+  $('selectedCountText').textContent = `選択 ${selected.length}人`;
+  $('selectedPanelCount').textContent = `${selected.length}人`;
+  if (selected.length === 0) { $('selectedStudentList').textContent = 'まだ選択されていません。'; return; }
+  const summary = selected.map(s => `${s.grade} ${s.name}さん`).join('、');
+  $('selectedStudentList').innerHTML = `<div class="selected-summary">${escapeHtml(summary)}</div><div class="selected-table">${selected.map(s => `<div class="selected-row"><span class="grade-pill">${escapeHtml(s.grade)}</span><strong>${escapeHtml(s.name)}さん</strong><span>${escapeHtml(s.school)}</span><button class="remove-selected" data-id="${escapeHtml(s.id)}" type="button">解除</button></div>`).join('')}</div>`;
+  document.querySelectorAll('.remove-selected').forEach(btn => btn.addEventListener('click', e => { selectedStudents.delete(e.currentTarget.dataset.id); renderStudents(); updatePreview(); }));
+}
+function compareStudent(a, b) { return gradeSortValue(a.grade) - gradeSortValue(b.grade) || String(a.school).localeCompare(String(b.school), 'ja') || String(a.name).localeCompare(String(b.name), 'ja'); }
+function gradeSortValue(grade) { const g = normalizeGrade(grade); const m = g.match(/^([小中高])([1-6])$/); if (!m) return 999; return ({ 小: 0, 中: 10, 高: 20 }[m[1]] || 99) + Number(m[2]); }
+function selectVisibleStudents() { getFilteredStudents().forEach(s => selectedStudents.set(s.id, s)); renderStudents(); updatePreview(); }
+
+function getDateText() { if (!$('dateInput').value) return ''; const d = new Date($('dateInput').value + 'T00:00:00'); return `${d.getMonth() + 1}月${d.getDate()}日`; }
+function getWeekday() { if (!$('dateInput').value) return ''; const d = new Date($('dateInput').value + 'T00:00:00'); return ['日','月','火','水','木','金','土'][d.getDay()]; }
+function getTimeText() { return $('timeSelect').value === 'その他' ? $('customTimeInput').value : $('timeSelect').value; }
+function buildBody() { const links = $('linkInput').value.trim(); let body = $('bodyInput').value; if (links) body += `\n\n【リンク】\n${links}`; return body; }
+function applyPlaceholdersForStudent(body, studentName) { return String(body || '').replaceAll('{{日付}}', getDateText()).replaceAll('{{曜日}}', getWeekday()).replaceAll('{{時間帯}}', getTimeText()).replaceAll('{{電話番号}}', '0568-41-8937').replaceAll('{{生徒名}}', studentName); }
+function buildPreviewBody() { return applyPlaceholdersForStudent(buildBody(), getPreviewStudentName()); }
+function getPreviewStudentName() { const selected = Array.from(selectedStudents.values())[0]; return selected ? selected.name : '山田太郎'; }
+function updatePreview() { $('preview').textContent = buildPreviewBody(); }
+
+function addFiles(files) { files.forEach(file => { if (!selectedFiles.some(f => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified)) selectedFiles.push(file); }); $('fileInput').value = ''; renderAttachmentList(); }
+function renderAttachmentList() {
+  if (selectedFiles.length === 0) { $('attachmentList').textContent = '添付ファイルはありません。'; return; }
+  $('attachmentList').innerHTML = selectedFiles.map((f, i) => `<div class="attachment-row"><span>📎 ${escapeHtml(f.name)}（${formatFileSize(f.size)}）</span><button type="button" data-index="${i}" class="remove-file">削除</button></div>`).join('');
+  document.querySelectorAll('.remove-file').forEach(btn => btn.addEventListener('click', e => { selectedFiles.splice(Number(e.currentTarget.dataset.index), 1); renderAttachmentList(); }));
+}
+function formatFileSize(size) { if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`; return `${Math.ceil(size / 1024)}KB`; }
+function fileToAttachment(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => { const dataUrl = String(reader.result || ''); const base64 = dataUrl.split(',')[1] || ''; resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', data: base64, size: file.size }); }; reader.onerror = () => reject(new Error(`${file.name}を読み込めませんでした。`)); reader.readAsDataURL(file); }); }
+
+async function sendMail() {
+  const selected = Array.from(selectedStudents.values()).sort(compareStudent);
+  const ids = selected.map(s => s.id);
+  if (ids.length === 0) return showStatus('送信対象の生徒を選択してください。', 'error');
+  if (!$('subjectInput').value.trim()) return showStatus('件名を入力してください。', 'error');
+  if (!buildBody().trim()) return showStatus('本文を入力してください。', 'error');
+  const selectedNames = selected.map(s => `${s.grade} ${s.name}さん`).join('\n');
+  const templateId = $('templateSelect').value;
+  let confirmNotice = '';
+  if (templateId === 'tokkun') confirmNotice = `案内日時：${getDateText()}（${getWeekday()}）${getTimeText()}`;
+  else if (templateId === 'mada') confirmNotice = `未着連絡：今から「まだお見えになっておりません」を送信します。`;
+  else confirmNotice = `通常連絡を送信します。`;
+  const fileNotice = selectedFiles.length ? `\n添付：${selectedFiles.map(f => f.name).join('、')}` : '';
+  const ok = confirm(`以下の生徒に送信します。\n\n${selectedNames}\n\n件名：${$('subjectInput').value}\n${confirmNotice}${fileNotice}\n\n送信してよろしいですか？`);
+  if (!ok) return;
+  $('sendButton').disabled = true;
+  showStatus('送信中です...', '');
+  try {
+    const attachments = await Promise.all(selectedFiles.map(fileToAttachment));
+    const actualBodies = selected.map(s => ({ id: s.id, name: s.name, label: `${s.grade} ${s.name}さん`, body: applyPlaceholdersForStudent(buildBody(), s.name) }));
+    const result = await sendSelectedMail({
+      templateId,
+      studentIds: ids,
+      subject: $('subjectInput').value,
+      body: buildBody(),
+      actualBody: actualBodies[0] ? actualBodies[0].body : buildPreviewBody(),
+      actualBodies: JSON.stringify(actualBodies),
+      dateText: getDateText(),
+      weekday: getWeekday(),
+      timeText: getTimeText(),
+      selectedLabels: selected.map(s => `${s.grade} ${s.name}さん`),
+      attachments
+    });
+    if (result && result.error) throw new Error(result.message || '送信に失敗しました。');
+    showStatus(`${result.sentCount}件送信しました。`, 'ok');
+    selectedStudents.clear(); selectedFiles = [];
+    renderAttachmentList(); renderStudents(); updatePreview();
+    await loadHistory();
+  } catch (e) { showStatus(e.message, 'error'); }
+  finally { $('sendButton').disabled = false; }
 }
 
-async function load(){ $('dateInput').value=today(); syncDate(); renderGradeButtons(); students=await api.getStudents(); templates=await api.getTemplates(); $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join(''); applyTemplate(); renderStudents(); loadAbsences() }
-function syncDate(){ $('dateDisplay').value=fmtDate($('dateInput').value) }
-function openNativeDate(){ $('dateInput').showPicker?.(); $('dateInput').click() }
-function showConfirm(){const arr=[...selected.values()]; const title=$('subjectInput').value; const d=jpShort($('dateInput').value); const t=timeText(); let msg=`送信件数：${arr.length}件\n件名：${title}\n`; if((currentTemplate?.id||'').includes('tokkun')) msg+=`案内日時：${d} ${t}\n`; msg+=`\n送信先：\n${arr.map(s=>`${s.grade} ${s.name}さん`).join('、')}`; return confirm(msg)}
-async function send(){if(!selected.size){alert('送信先を選択してください');return} if(!showConfirm())return; $('status').textContent='送信中です…'; try{const at=await buildAttachments(); const res=await api.sendMail({templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpShort($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:at}); $('status').textContent=`送信完了：${res.sentCount}件`; selected.clear(); files=[]; renderFiles(); renderStudents(); loadHistory();}catch(e){$('status').textContent='エラー：'+e.message}}
-function renderFiles(){ $('fileList').innerHTML=files.map(f=>`📎 ${f.name}`).join('<br>') }
-async function loadHistory(){const data=await api.getHistory({from:$('historyFrom').value,to:$('historyTo').value,q:$('historySearch').value});$('historyList').innerHTML=data.map(h=>`<div class="historyItem"><button class="xbtn" onclick="archiveHistory('${h.id}')">×</button><div class="historyMeta">送信日：${h.sentDateLabel}</div><div class="historyTitle">${h.titleLine}</div><div class="historyMeta">送信先：${h.targetLine}</div><details class="details"><summary>本文・詳細を表示</summary><pre>${h.body||''}</pre></details></div>`).join('')||'<div class="muted">履歴がありません。</div>'}
-async function archiveHistory(id){if(!confirm('この履歴を画面から非表示にしますか？'))return; await api.archiveHistory(id); loadHistory()}
-async function loadAbsences(){const data=await api.getAbsences();$('absenceList').innerHTML=data.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b><div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>'}
-window.archiveHistory=archiveHistory;
-document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents); $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents()}; $('clearGradeBtn').onclick=()=>{activeGrades=new Set(['全生徒']);renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');loadHistory()}; $('reloadHistory').onclick=loadHistory; $('reloadAbsence').onclick=loadAbsences;});
+async function loadHistory() {
+  $('historyList').textContent = '読み込み中...';
+  try { histories = await getHistoryRequest(); if (!Array.isArray(histories)) throw new Error(histories.message || '履歴を取得できませんでした。'); renderHistory(); }
+  catch (e) { $('historyList').innerHTML = `<div class="status error">${escapeHtml(e.message)}</div>`; }
+}
+function getArchivedIds() { try { return JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]'); } catch(e) { return []; } }
+function historyKey(h) { return String(h.id || h.historyId || [h.date, h.subject, h.target, h.count, h.noticeDateText, h.noticeTimeText].join('|')); }
+function renderHistory() {
+  const archived = new Set(getArchivedIds());
+  const keyword = normalizeText($('historySearch').value);
+  const from = $('historyFromDate').value;
+  const to = $('historyToDate').value;
+  const list = histories.filter(h => {
+    if (archived.has(historyKey(h))) return false;
+    const hay = normalizeText(`${h.target} ${h.subject} ${h.noticeDateText} ${h.noticeTimeText} ${h.dateDisplay || h.date}`);
+    if (keyword && !hay.includes(keyword)) return false;
+    if (from && (!h.sendDateYmd || h.sendDateYmd < from)) return false;
+    if (to && (!h.sendDateYmd || h.sendDateYmd > to)) return false;
+    return true;
+  });
+  if (list.length === 0) { $('historyList').textContent = '履歴がありません。'; return; }
+  $('historyList').innerHTML = list.map(buildHistoryCard).join('');
+}
+function buildHistoryCard(h) {
+  const kind = getHistoryKind(h);
+  const target = h.target || '送信先不明';
+  const count = h.count || 0;
+  const sendDate = h.dateDisplay || h.date || '';
+  let line = '';
+  if (kind === '特訓部屋') line = `特訓部屋のお知らせ${formatNoticeForHistory(h) ? '　' + formatNoticeForHistory(h) : ''}`;
+  else if (kind === '未着連絡') line = 'まだお見えになっておりません。'; else line = h.subject || '通常連絡';
+  const body = buildActualHistoryBody(h);
+  return `<div class="history-item simple"><div class="history-line">送信日：${escapeHtml(sendDate)}</div><div class="history-main-title">${escapeHtml(line)}</div><div class="history-line history-target-line">送信先：${escapeHtml(target)} / ${escapeHtml(String(count))}件</div><details class="history-details"><summary>本文・詳細を表示</summary><pre>${escapeHtml(body)}</pre></details></div>`;
+}
+function buildActualHistoryBody(h) {
+  if (h.actualBody) return h.actualBody;
+  if (Array.isArray(h.actualBodies) && h.actualBodies.length) return h.actualBodies.map(x => `【${x.name || '送信先'}】\n${x.body || ''}`).join('\n\n--------------------\n\n');
+  let arr = [];
+  try { arr = JSON.parse(h.actualBodies || '[]'); } catch(e) {}
+  if (Array.isArray(arr) && arr.length) return arr.map(x => `【${x.name || '送信先'}さん宛】\n${x.body || ''}`).join('\n\n--------------------\n\n');
+  const raw = h.body || h.bodyPreview || '';
+  const names = parseTargetNames(h.target);
+  if (!raw.includes('{{')) return raw + (h.attachmentNames ? `\n\n【添付】\n${h.attachmentNames}` : '');
+  return (names.length ? names : ['生徒']).map(name => `【${name}さん宛】\n${String(raw).replaceAll('{{生徒名}}', name).replaceAll('{{日付}}', h.noticeDateText || h.dateText || '').replaceAll('{{曜日}}', h.weekday || '').replaceAll('{{時間帯}}', h.noticeTimeText || h.timeText || '').replaceAll('{{電話番号}}', '0568-41-8937')}`).join('\n\n--------------------\n\n') + (h.attachmentNames ? `\n\n【添付】\n${h.attachmentNames}` : '');
+}
+function parseTargetNames(target) { return String(target || '').split(/[、,，]/).map(s => s.trim()).filter(Boolean).map(s => s.replace(/^小\d\s*/, '').replace(/^中\d\s*/, '').replace(/^高\d\s*/, '').replace(/さん$/,'').trim()).filter(Boolean); }
+function formatNoticeForHistory(h) { const date = h.noticeDateText || ''; const weekday = h.weekday || ''; const time = h.noticeTimeText || ''; const datePart = date ? `${date}${weekday ? '（' + weekday + '）' : ''}` : ''; return `${datePart}${time ? ' ' + time : ''}`.trim(); }
+function getHistoryKind(h) { if (h.templateId === 'tokkun' || String(h.subject || '').includes('特訓部屋')) return '特訓部屋'; if (h.templateId === 'mada' || String(h.subject || '').includes('まだ')) return '未着連絡'; return '通常連絡'; }
+function showStatus(message, type) { $('statusMessage').textContent = message; $('statusMessage').className = `status ${type || ''}`; }
+function normalizeGrade(v) { return String(v || '').replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, ''); }
+function normalizeText(v) { return String(v || '').toLowerCase().replace(/[ァ-ン]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)).replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\s/g, ''); }
+function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch])); }
+
+document.addEventListener('DOMContentLoaded', init);
