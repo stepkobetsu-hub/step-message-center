@@ -45,6 +45,9 @@ function bindEvents() {
   $('sendButton').addEventListener('click', sendMail);
   $('historyReloadButton').addEventListener('click', loadHistory);
   $('historySearch').addEventListener('input', renderHistory);
+  $('historyFromDate').addEventListener('change', renderHistory);
+  $('historyToDate').addEventListener('change', renderHistory);
+  $('historyClearButton').addEventListener('click', () => { $('historySearch').value = ''; $('historyFromDate').value = ''; $('historyToDate').value = ''; renderHistory(); });
 }
 
 function setToday() {
@@ -226,7 +229,16 @@ async function sendMail() {
   if (!buildBody().trim()) return showStatus('本文を入力してください。', 'error');
 
   const selectedNames = selected.map(s => `${s.grade} ${s.name}さん`).join('\n');
-  const ok = confirm(`以下の生徒に送信します。\n\n${selectedNames}\n\n件名：${$('subjectInput').value}\n案内日時：${getDateText()}（${getWeekday()}）${getTimeText()}\n\n送信してよろしいですか？`);
+  const templateId = $('templateSelect').value;
+  let confirmNotice = '';
+  if (templateId === 'tokkun') {
+    confirmNotice = `特訓部屋の案内日時：${getDateText()}（${getWeekday()}）${getTimeText()}`;
+  } else if (templateId === 'mada') {
+    confirmNotice = `未着連絡：今から「まだお見えになっておりません」を送信します。`;
+  } else {
+    confirmNotice = `通常連絡を送信します。`;
+  }
+  const ok = confirm(`以下の生徒に送信します。\n\n${selectedNames}\n\n件名：${$('subjectInput').value}\n${confirmNotice}\n\n送信してよろしいですか？`);
   if (!ok) return;
 
   $('sendButton').disabled = true;
@@ -244,6 +256,10 @@ async function sendMail() {
       selectedLabels: selected.map(s => `${s.grade} ${s.name}さん`)
     });
     showStatus(`${result.sentCount}件送信しました。`, 'ok');
+    // 送信後は選択済みをクリアして、誤送信・二重送信を防ぎます。
+    selectedStudents.clear();
+    renderStudents();
+    updatePreview();
     await loadHistory();
   } catch (e) {
     showStatus(e.message, 'error');
@@ -265,23 +281,49 @@ async function loadHistory() {
 
 function renderHistory() {
   const keyword = normalizeText($('historySearch').value);
-  const list = histories.filter(h => !keyword || normalizeText(`${h.target} ${h.subject} ${h.body} ${h.noticeDateText} ${h.noticeTimeText}`).includes(keyword));
+  const from = $('historyFromDate').value;
+  const to = $('historyToDate').value;
+
+  const list = histories.filter(h => {
+    const hay = normalizeText(`${h.target} ${h.subject} ${h.summary || ''} ${h.noticeDateText} ${h.noticeTimeText} ${h.date}`);
+    if (keyword && !hay.includes(keyword)) return false;
+    if (from && (!h.sendDateYmd || h.sendDateYmd < from)) return false;
+    if (to && (!h.sendDateYmd || h.sendDateYmd > to)) return false;
+    return true;
+  });
+
   if (list.length === 0) {
     $('historyList').textContent = '履歴がありません。';
     return;
   }
+
   $('historyList').innerHTML = list.map(h => {
-    const notice = h.noticeDateText || h.noticeTimeText ? `${h.noticeDateText || ''}${h.weekday ? '（' + h.weekday + '）' : ''} ${h.noticeTimeText || ''}`.trim() : '記録なし';
+    const kind = getHistoryKind(h);
     return `
-      <div class="history-item">
-        <div class="history-date">送信日時：${escapeHtml(h.date)}</div>
-        <div class="history-title">${escapeHtml(h.subject)}</div>
-        <div class="history-notice">案内日時：<strong>${escapeHtml(notice)}</strong></div>
-        <div class="history-target">送信先：${escapeHtml(h.target)} / ${escapeHtml(String(h.count))}件</div>
-        <div class="history-body">${escapeHtml((h.bodyPreview || h.body || '').slice(0, 140))}</div>
+      <div class="history-item simple">
+        <div class="history-kind">${escapeHtml(kind)}</div>
+        <div class="history-summary">${escapeHtml(h.summary || buildHistorySummary(h))}</div>
+        <div class="history-sent">送信日時：${escapeHtml(h.date)}　送信件数：${escapeHtml(String(h.count))}件</div>
       </div>
     `;
   }).join('');
+}
+
+function getHistoryKind(h) {
+  if (h.templateId === 'tokkun' || String(h.subject || '').includes('特訓部屋')) return '特訓部屋';
+  if (h.templateId === 'mada' || String(h.subject || '').includes('まだ')) return '未着連絡';
+  return '通常連絡';
+}
+
+function buildHistorySummary(h) {
+  if (getHistoryKind(h) === '特訓部屋') {
+    const notice = `${h.noticeDateText || ''}${h.weekday ? '（' + h.weekday + '）' : ''}${h.noticeTimeText ? ' ' + h.noticeTimeText : ''}`.trim();
+    return `${h.target}へ、${notice || '案内日時未記録'}の特訓部屋を案内`;
+  }
+  if (getHistoryKind(h) === '未着連絡') {
+    return `${h.target}へ、${h.date}に「まだお見えになっておりません」を送信`;
+  }
+  return `${h.target}へ、${h.subject || '通常連絡'}を送信`;
 }
 
 function showStatus(message, type) {

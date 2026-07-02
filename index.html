@@ -140,6 +140,17 @@
         <div class="section compact">
           <label class="label">履歴検索</label>
           <input type="text" id="historySearch" class="input" placeholder="生徒名・件名で検索" />
+          <div class="history-date-range">
+            <div>
+              <label class="label mini">送信日From</label>
+              <input type="date" id="historyFromDate" class="input" />
+            </div>
+            <div>
+              <label class="label mini">送信日To</label>
+              <input type="date" id="historyToDate" class="input" />
+            </div>
+          </div>
+          <button id="historyClearButton" class="small-button full">履歴条件クリア</button>
         </div>
         <div id="historyList" class="history-list">読み込み中...</div>
       </aside>

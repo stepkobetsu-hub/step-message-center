@@ -72,3 +72,12 @@ body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Se
 .remove-selected { width: auto; min-width: 48px; padding: 6px 8px; height: auto; }
 .history-notice { background: #fff3cd; border: 1px solid #f2d37c; color: #533f03; border-radius: 10px; padding: 7px 9px; margin: 7px 0; font-size: 13px; }
 @media (max-width: 640px) { .selected-row { grid-template-columns: 54px 1fr 52px; } .selected-school { display:none; } }
+
+/* Ver.8: 履歴を必要情報だけに絞る */
+.history-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.label.mini { font-size: 12px; margin-bottom: 4px; }
+.small-button.full { width: 100%; margin-top: 8px; }
+.history-item.simple { border-left: 5px solid #0b5cad; }
+.history-summary { font-size: 14px; line-height: 1.65; font-weight: 800; color: #0b2545; }
+.history-sent { font-size: 12px; color: #607d9b; margin-top: 4px; }
+.history-kind { display:inline-block; font-size:12px; padding:3px 7px; border-radius:999px; background:#eaf3ff; color:#0b4a8b; font-weight:900; margin-bottom:6px; }
