@@ -8,101 +8,136 @@
 </head>
 <body>
   <div class="app">
-    <header class="hero">
+    <header class="header">
       <div>
         <h1>STEP配信システム</h1>
-        <p>入退くんメール代替・個別送信用</p>
+        <p>個別送信・自由連絡・履歴確認</p>
       </div>
-      <span class="badge">Ver.3</span>
+      <button id="reloadButton" class="small-button">再読込</button>
     </header>
 
-    <main class="panel">
-      <section class="field">
-        <label>テンプレート</label>
-        <select id="templateSelect"></select>
-      </section>
-
-      <section class="grid2">
-        <div class="field">
-          <label>日付</label>
-          <input id="dateInput" type="date" />
-        </div>
-        <div class="field">
-          <label>時間帯</label>
-          <select id="timeSelect">
-            <option value="17:10～18:25">17:10～18:25</option>
-            <option value="18:35～19:50">18:35～19:50</option>
-            <option value="20:00～21:15">20:00～21:15</option>
-            <option value="その他">その他</option>
+    <main class="layout">
+      <section class="card main-card">
+        <div class="section">
+          <label class="label">テンプレート</label>
+          <select id="templateSelect" class="input">
+            <option value="mada">まだお見えになっておりません</option>
+            <option value="tokkun">特訓部屋のお知らせ</option>
+            <option value="free">自由記述</option>
           </select>
         </div>
-      </section>
 
-      <section id="customTimeBox" class="field hidden">
-        <label>その他の時間帯</label>
-        <input id="customTimeInput" type="text" placeholder="例：19:00～20:00" />
-      </section>
-
-      <section class="studentsBox">
-        <div class="boxHeader">
-          <h2>送信対象生徒</h2>
-          <button id="reloadStudents" type="button">再読込</button>
-        </div>
-
-        <div class="grid2">
-          <div class="field">
-            <label>校舎</label>
-            <select id="schoolFilter">
-              <option value="全校舎">全校舎</option>
-              <option value="神領校">神領校</option>
-              <option value="大手町校">大手町校</option>
-            </select>
+        <div class="grid-2">
+          <div class="section">
+            <label class="label">日付</label>
+            <input type="date" id="dateInput" class="input" />
           </div>
-          <div class="field">
-            <label>学年</label>
-            <select id="gradeFilter">
-              <option value="全学年">全学年</option>
-              <option value="小1">小1</option><option value="小2">小2</option><option value="小3">小3</option>
-              <option value="小4">小4</option><option value="小5">小5</option><option value="小6">小6</option>
-              <option value="中1">中1</option><option value="中2">中2</option><option value="中3">中3</option>
-              <option value="高1">高1</option><option value="高2">高2</option><option value="高3">高3</option>
+          <div class="section">
+            <label class="label">時間帯</label>
+            <select id="timeSelect" class="input">
+              <option value="17:10～18:25">17:10～18:25</option>
+              <option value="18:35～19:50">18:35～19:50</option>
+              <option value="20:00～21:15">20:00～21:15</option>
+              <option value="その他">その他</option>
             </select>
           </div>
         </div>
 
-        <div class="field">
-          <label>氏名検索</label>
-          <input id="nameSearch" type="text" placeholder="例：山田、やまだ、太郎" />
+        <div id="customTimeArea" class="section hidden">
+          <label class="label">その他の時間帯</label>
+          <input type="text" id="customTimeInput" class="input" placeholder="例：19:00～20:00" />
         </div>
 
-        <div class="studentStatus">
-          <strong id="studentMessage">読み込み中...</strong>
-          <strong id="selectedCount">選択 0人</strong>
+        <section class="student-box">
+          <div class="student-head">
+            <h2>送信対象生徒</h2>
+            <div class="student-actions">
+              <button id="selectVisibleButton" class="small-button">表示中を選択</button>
+              <button id="clearSelectedButton" class="small-button danger-light">選択解除</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="section compact">
+              <label class="label">校舎</label>
+              <select id="schoolFilter" class="input">
+                <option value="全校舎">全校舎</option>
+                <option value="神領校">神領校</option>
+                <option value="大手町校">大手町校</option>
+              </select>
+            </div>
+            <div class="section compact">
+              <label class="label">学年</label>
+              <select id="gradeFilter" class="input">
+                <option value="全学年">全学年</option>
+                <option value="小1">小1</option>
+                <option value="小2">小2</option>
+                <option value="小3">小3</option>
+                <option value="小4">小4</option>
+                <option value="小5">小5</option>
+                <option value="小6">小6</option>
+                <option value="中1">中1</option>
+                <option value="中2">中2</option>
+                <option value="中3">中3</option>
+                <option value="高1">高1</option>
+                <option value="高2">高2</option>
+                <option value="高3">高3</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="section compact">
+            <label class="label">氏名検索</label>
+            <input type="text" id="nameSearch" class="input" placeholder="例：山田、やまだ、太郎" />
+          </div>
+
+          <div class="student-status">
+            <span id="studentCountText">読み込み中...</span>
+            <strong id="selectedCountText">選択 0人</strong>
+          </div>
+          <div id="studentList" class="student-list"></div>
+        </section>
+
+        <div class="section">
+          <label class="label">件名</label>
+          <input type="text" id="subjectInput" class="input" />
         </div>
-        <div id="studentList" class="studentList"></div>
+
+        <div class="section">
+          <label class="label">本文</label>
+          <textarea id="bodyInput" class="textarea"></textarea>
+        </div>
+
+        <div class="section">
+          <label class="label">添付・リンク</label>
+          <textarea id="linkInput" class="textarea small" placeholder="Googleドライブの共有URL、PDF、画像URLなど。複数ある場合は1行ずつ入力してください。"></textarea>
+          <p class="hint">第1段階ではファイルを直接添付せず、本文末尾にリンクとして追加します。</p>
+        </div>
+
+        <div class="section">
+          <label class="label">プレビュー</label>
+          <div id="preview" class="preview"></div>
+        </div>
+
+        <button id="sendButton" class="send-button">選択した生徒に配信する</button>
+        <p id="statusMessage" class="status"></p>
       </section>
 
-      <section class="field">
-        <label>件名</label>
-        <input id="subjectInput" type="text" />
-      </section>
-
-      <section class="field">
-        <label>本文</label>
-        <textarea id="bodyInput"></textarea>
-      </section>
-
-      <section class="field">
-        <label>プレビュー</label>
-        <div id="preview" class="preview"></div>
-      </section>
-
-      <button id="sendButton" class="sendButton" type="button">選択した生徒に配信する</button>
-      <p id="statusMessage" class="status"></p>
+      <aside class="card history-card">
+        <div class="history-head">
+          <h2>最近の配信履歴</h2>
+          <button id="historyReloadButton" class="small-button">更新</button>
+        </div>
+        <div class="section compact">
+          <label class="label">履歴検索</label>
+          <input type="text" id="historySearch" class="input" placeholder="生徒名・件名で検索" />
+        </div>
+        <div id="historyList" class="history-list">読み込み中...</div>
+      </aside>
     </main>
   </div>
 
-  <script src="api.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

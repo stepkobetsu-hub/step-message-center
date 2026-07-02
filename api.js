@@ -1,40 +1,34 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbz9aRZIiaV4Vcz2jEyPsaoxWojUCts13IRR9dHveM8QM8baok0Wjm1jGA_M3lkqmQWRHw/exec';
 
-function getStudentsRequest(callback) {
-  const callbackName = 'jsonpCallback_' + Date.now();
-  const script = document.createElement('script');
-  let done = false;
+function jsonpRequest(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    const callbackName = 'jsonpCallback_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    const script = document.createElement('script');
+    const query = new URLSearchParams({ action, callback: callbackName, ...params });
 
-  const cleanup = () => {
-    try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
-    if (script.parentNode) script.parentNode.removeChild(script);
-  };
+    window[callbackName] = function(data) {
+      resolve(data);
+      delete window[callbackName];
+      script.remove();
+    };
 
-  const timer = setTimeout(() => {
-    if (done) return;
-    done = true;
-    cleanup();
-    callback({ error: true, message: '生徒一覧の取得がタイムアウトしました。Apps ScriptのデプロイURLと権限を確認してください。' });
-  }, 15000);
+    script.onerror = function() {
+      reject(new Error('通信に失敗しました。'));
+      delete window[callbackName];
+      script.remove();
+    };
 
-  window[callbackName] = function(data) {
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    cleanup();
-    callback(data);
-  };
+    script.src = API_URL + '?' + query.toString();
+    document.body.appendChild(script);
+  });
+}
 
-  script.onerror = function() {
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    cleanup();
-    callback({ error: true, message: '生徒一覧の取得に失敗しました。' });
-  };
+function getStudentsRequest() {
+  return jsonpRequest('getStudents');
+}
 
-  script.src = API_URL + '?action=getStudents&callback=' + encodeURIComponent(callbackName) + '&t=' + Date.now();
-  document.body.appendChild(script);
+function getHistoryRequest() {
+  return jsonpRequest('getHistory');
 }
 
 async function sendSelectedMail(payload) {
@@ -42,6 +36,7 @@ async function sendSelectedMail(payload) {
     method: 'POST',
     body: JSON.stringify({ action: 'sendSelected', ...payload })
   });
+
   if (!response.ok) throw new Error('送信に失敗しました。');
   return await response.json();
 }
