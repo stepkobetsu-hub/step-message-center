@@ -31,12 +31,23 @@ function getHistoryRequest() {
   return jsonpRequest('getHistory');
 }
 
-async function sendSelectedMail(payload) {
+function getTemplatesRequest() {
+  return jsonpRequest('getTemplates');
+}
+
+async function postToApi(payload) {
   const response = await fetch(API_URL, {
     method: 'POST',
-    body: JSON.stringify({ action: 'sendSelected', ...payload })
+    body: JSON.stringify(payload)
   });
-
   if (!response.ok) throw new Error('送信に失敗しました。');
   return await response.json();
+}
+
+function sendSelectedMail(payload) {
+  return postToApi({ action: 'sendSelected', ...payload });
+}
+
+function saveTemplateRequest(payload) {
+  return postToApi({ action: 'saveTemplate', ...payload });
 }

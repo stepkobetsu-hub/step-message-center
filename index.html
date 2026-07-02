@@ -11,7 +11,7 @@
     <header class="header">
       <div>
         <h1>STEP配信システム</h1>
-        <p>個別送信・自由連絡・履歴確認</p>
+        <p>個別送信・添付・テンプレート管理・履歴確認</p>
       </div>
       <button id="reloadButton" class="small-button">再読込</button>
     </header>
@@ -20,18 +20,20 @@
       <section class="card main-card">
         <div class="section">
           <label class="label">テンプレート</label>
-          <select id="templateSelect" class="input">
-            <option value="mada">まだお見えになっておりません</option>
-            <option value="tokkun">特訓部屋のお知らせ</option>
-            <option value="free">自由記述</option>
-          </select>
+          <select id="templateSelect" class="input"></select>
+          <div class="template-actions">
+            <button id="newTemplateButton" type="button" class="small-button">自由文から作成</button>
+            <button id="saveTemplateButton" type="button" class="small-button">現在の件名・本文をテンプレート保存</button>
+            <button id="reloadTemplateButton" type="button" class="small-button">テンプレート再読込</button>
+          </div>
+          <p class="hint">定型文は「テンプレート」シートに保存されます。件名・本文を直して保存できます。</p>
         </div>
 
         <div class="grid-2">
           <div class="section">
             <label class="label">日付</label>
             <input type="date" id="dateInput" class="input" />
-              <div id="dateDisplay" class="date-display">日付未選択</div>
+            <div id="dateDisplay" class="date-display">日付未選択</div>
           </div>
           <div class="section">
             <label class="label">時間帯</label>
@@ -94,11 +96,10 @@
 
           <div class="selected-panel">
             <div class="selected-panel-head">
-              <strong>現在選択中の生徒（絞り込みを変えても残ります）</strong>
+              <strong>現在選択中の生徒（送信後は自動で消えます）</strong>
               <span id="selectedPanelCount">0人</span>
             </div>
             <div id="selectedStudentList" class="selected-student-list">まだ選択されていません。</div>
-            <p class="hint selected-hint">例：中2でAさんを選択した後、中3に絞り直してもAさんはここに残ります。</p>
           </div>
 
           <div class="student-status">
@@ -119,9 +120,18 @@
         </div>
 
         <div class="section">
-          <label class="label">添付・リンク</label>
-          <textarea id="linkInput" class="textarea small" placeholder="Googleドライブの共有URL、PDF、画像URLなど。複数ある場合は1行ずつ入力してください。"></textarea>
-          <p class="hint">第1段階ではファイルを直接添付せず、本文末尾にリンクとして追加します。</p>
+          <label class="label">実物添付（PDF・写真など）</label>
+          <div id="dropZone" class="drop-zone">
+            <strong>ここへドラッグ＆ドロップ</strong><br />
+            または <label class="file-label">ファイルを選択<input type="file" id="fileInput" multiple /></label>
+          </div>
+          <div id="attachmentList" class="attachment-list">添付ファイルはありません。</div>
+          <p class="hint">PDF・写真などをメールに実物添付します。大きすぎるファイルは送信に失敗する場合があります。</p>
+        </div>
+
+        <div class="section">
+          <label class="label">リンク</label>
+          <textarea id="linkInput" class="textarea small" placeholder="GoogleドライブURL、WebページURLなど。複数ある場合は1行ずつ入力してください。"></textarea>
         </div>
 
         <div class="section">
