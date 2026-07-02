@@ -55,3 +55,8 @@ function saveTemplateRequest(payload) {
 function deleteTemplateRequest(payload) {
   return postToApi({ action: 'deleteTemplate', ...payload });
 }
+
+
+function archiveHistoryRequest(payload) {
+  return postToApi({ action: 'archiveHistory', ...payload });
+}

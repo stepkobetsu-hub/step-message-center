@@ -24,7 +24,21 @@ function bindTemplateEvents() {
     $('historyToDate').value = '';
     renderHistoryForPage();
   });
+  document.querySelectorAll('.merge-button').forEach(btn => {
+    btn.addEventListener('click', () => insertMergeToken(btn.dataset.token));
+  });
 }
+
+function insertMergeToken(token) {
+  const area = $('templateBodyInput');
+  const start = area.selectionStart ?? area.value.length;
+  const end = area.selectionEnd ?? area.value.length;
+  area.value = area.value.slice(0, start) + token + area.value.slice(end);
+  const pos = start + token.length;
+  area.focus();
+  area.setSelectionRange(pos, pos);
+}
+
 
 async function loadTemplatesForPage() {
   $('templateList').textContent = '読み込み中...';

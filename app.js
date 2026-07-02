@@ -158,11 +158,21 @@ function getFilteredStudents() {
   const kw = normalizeText($('nameSearch').value);
   return students.filter(s => {
     if (school !== '全校舎' && s.school !== school) return false;
-    if (grade !== '全学年' && normalizeGrade(s.grade) !== normalizeGrade(grade)) return false;
+    if (!matchesGradeFilter(s.grade, grade)) return false;
     const hay = normalizeText(`${s.name} ${s.grade} ${s.school} ${s.id}`);
     if (kw && !hay.includes(kw)) return false;
     return true;
   }).sort(compareStudent);
+}
+
+function matchesGradeFilter(studentGrade, filter) {
+  const g = normalizeGrade(studentGrade);
+  if (!filter || filter === '全学年' || filter === '全生徒') return true;
+  if (filter === '全小学生') return g.startsWith('小');
+  if (filter === '全中学生') return g.startsWith('中');
+  if (filter === '全高校生') return g.startsWith('高');
+  if (filter === '全小学生＆全中学生') return g.startsWith('小') || g.startsWith('中');
+  return g === normalizeGrade(filter);
 }
 
 function renderStudents() {
@@ -243,14 +253,14 @@ function updateSelectedDisplay() {
   const summary = selected.map(s => `${s.grade} ${s.name}さん`).join('、');
   $('selectedStudentList').innerHTML = `
     <div class="selected-group-summary">${escapeHtml(groupSummary)}</div>
-    <div class="selected-summary">${escapeHtml(summary)}</div>
-    <div class="selected-table">
+    <div class="selected-summary compact-summary">${escapeHtml(summary)}</div>
+    <div class="selected-table compact-selected-table">
       ${selected.map(s => `
-        <div class="selected-row">
+        <div class="selected-row compact-selected-row">
           <span class="grade-pill">${escapeHtml(s.grade)}</span>
           <strong>${escapeHtml(s.name)}さん</strong>
           <span>${escapeHtml(s.school)}</span>
-          <button class="remove-selected" data-id="${escapeHtml(s.id)}" type="button">解除</button>
+          <button class="remove-selected" data-id="${escapeHtml(s.id)}" type="button">×</button>
         </div>`).join('')}
     </div>`;
   document.querySelectorAll('.remove-selected').forEach(btn => {
@@ -432,6 +442,22 @@ function renderHistory() {
     return true;
   });
   $('historyList').innerHTML = list.length ? list.map(buildHistoryCard).join('') : '履歴がありません。';
+  document.querySelectorAll('.archive-history-button').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const rowNumber = e.currentTarget.dataset.row;
+      if (!rowNumber) return;
+      if (!confirm('この履歴を画面表示から消します。履歴シートには残ります。')) return;
+      try {
+        const result = await archiveHistoryRequest({ rowNumber });
+        if (result && result.error) throw new Error(result.message || '履歴を非表示にできませんでした。');
+        histories = histories.filter(h => String(h.rowNumber) !== String(rowNumber));
+        renderHistory();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
 }
 function buildHistoryCard(h) {
   const kind = getHistoryKind(h);
@@ -441,7 +467,8 @@ function buildHistoryCard(h) {
   else if (kind === '未着連絡') line = 'まだお見えになっておりません。';
   else line = h.subject || '通常連絡';
   const attach = h.attachmentNames ? `\n\n【添付】\n${h.attachmentNames}` : '';
-  return `<div class="history-item simple">
+  return `<div class="history-item simple" data-row="${escapeHtml(h.rowNumber || '')}">
+    <button type="button" class="archive-history-button" data-row="${escapeHtml(h.rowNumber || '')}" title="表示から消す">×</button>
     <div class="history-line">送信日：${escapeHtml(sendDate)}</div>
     <div class="history-main-title">${escapeHtml(line)}</div>
     <div class="history-line history-target-line">送信先：${escapeHtml(h.target || '送信先不明')} / ${escapeHtml(String(h.count || 0))}件</div>

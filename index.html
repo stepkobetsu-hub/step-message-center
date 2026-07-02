@@ -53,9 +53,6 @@
           <div class="student-head">
             <h2>送信対象生徒</h2>
             <div class="student-actions">
-              <button id="selectVisibleButton" class="small-button">表示中をすべて選択</button>
-              <button id="clearVisibleButton" class="small-button">表示中をすべて解除</button>
-              <button id="invertVisibleButton" class="small-button">表示中を反転</button>
               <button id="clearSelectedButton" class="small-button danger-light">全選択解除</button>
             </div>
           </div>
@@ -84,6 +81,11 @@
             <div class="section compact">
               <label class="label">学年</label>
               <select id="gradeFilter" class="input">
+                <option value="全生徒">全生徒</option>
+                <option value="全小学生">全小学生</option>
+                <option value="全中学生">全中学生</option>
+                <option value="全高校生">全高校生</option>
+                <option value="全小学生＆全中学生">全小学生＆全中学生</option>
                 <option value="全学年">全学年</option>
                 <option value="小1">小1</option><option value="小2">小2</option><option value="小3">小3</option>
                 <option value="小4">小4</option><option value="小5">小5</option><option value="小6">小6</option>
@@ -99,6 +101,11 @@
 
           <div class="student-status">
             <span id="studentCountText">読み込み中...</span>
+            <div class="visible-actions">
+              <button id="selectVisibleButton" class="small-button">全選択</button>
+              <button id="clearVisibleButton" class="small-button">全解除</button>
+              <button id="invertVisibleButton" class="small-button">反転</button>
+            </div>
             <strong id="selectedCountText">選択 0人</strong>
           </div>
 

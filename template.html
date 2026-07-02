@@ -39,7 +39,14 @@
         <div class="section">
           <label class="label">本文</label>
           <textarea id="templateBodyInput" class="textarea template-editor" placeholder="本文を入力してください。生徒名を入れたい場所には {{生徒名}} と書けます。"></textarea>
-          <p class="hint">使える差し込み：{{生徒名}} / {{日付}} / {{曜日}} / {{時間帯}} / {{電話番号}}</p>
+          <p class="hint">使える差し込み：ボタンを押すとカーソル位置に入ります。</p>
+          <div class="merge-buttons">
+            <button type="button" class="merge-button" data-token="{{生徒名}}">生徒名</button>
+            <button type="button" class="merge-button" data-token="{{日付}}">日付</button>
+            <button type="button" class="merge-button" data-token="{{曜日}}">曜日</button>
+            <button type="button" class="merge-button" data-token="{{時間帯}}">時間帯</button>
+            <button type="button" class="merge-button" data-token="{{電話番号}}">電話番号</button>
+          </div>
         </div>
 
         <div class="template-save-row">
