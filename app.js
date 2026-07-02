@@ -45,6 +45,8 @@ function bindEvents() {
   $('nameSearch').addEventListener('input', renderStudents);
   $('reloadButton').addEventListener('click', () => { loadTemplates(); loadStudents(); loadHistory(); });
   $('selectVisibleButton').addEventListener('click', selectVisibleStudents);
+  $('clearVisibleButton').addEventListener('click', clearVisibleStudents);
+  $('invertVisibleButton').addEventListener('click', invertVisibleStudents);
   $('clearSelectedButton').addEventListener('click', () => { selectedStudents.clear(); renderStudents(); updatePreview(); });
   $('visibleCheckAll').addEventListener('change', toggleVisibleAll);
   $('sendButton').addEventListener('click', sendMail);
@@ -181,7 +183,7 @@ function renderTable(list) {
   tbody.innerHTML = list.map(s => {
     const checked = selectedStudents.has(s.id) ? 'checked' : '';
     return `
-      <tr class="${checked ? 'row-selected' : ''}">
+      <tr data-id="${escapeHtml(s.id)}" class="${checked ? 'row-selected' : ''}">
         <td class="check-col"><input type="checkbox" class="student-check" data-id="${escapeHtml(s.id)}" ${checked}></td>
         <td><strong>${escapeHtml(s.name)}さん</strong></td>
         <td>${escapeHtml(s.grade || '')}</td>
@@ -190,11 +192,23 @@ function renderTable(list) {
       </tr>`;
   }).join('');
   document.querySelectorAll('.student-check').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
     cb.addEventListener('change', e => {
       const s = students.find(x => x.id === e.target.dataset.id);
       if (!s) return;
       if (e.target.checked) selectedStudents.set(s.id, s);
       else selectedStudents.delete(s.id);
+      renderStudents();
+      updatePreview();
+    });
+  });
+  document.querySelectorAll('#studentTableBody tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const id = tr.dataset.id;
+      const s = students.find(x => x.id === id);
+      if (!s) return;
+      if (selectedStudents.has(id)) selectedStudents.delete(id);
+      else selectedStudents.set(id, s);
       renderStudents();
       updatePreview();
     });
@@ -225,8 +239,10 @@ function updateSelectedDisplay() {
     $('selectedStudentList').textContent = 'まだ選択されていません。';
     return;
   }
+  const groupSummary = buildSelectedGroupSummary(selected);
   const summary = selected.map(s => `${s.grade} ${s.name}さん`).join('、');
   $('selectedStudentList').innerHTML = `
+    <div class="selected-group-summary">${escapeHtml(groupSummary)}</div>
     <div class="selected-summary">${escapeHtml(summary)}</div>
     <div class="selected-table">
       ${selected.map(s => `
@@ -246,6 +262,15 @@ function updateSelectedDisplay() {
   });
 }
 
+function buildSelectedGroupSummary(list) {
+  const groups = new Map();
+  list.forEach(s => {
+    const key = `${s.school || ''} ${s.grade || ''}`.trim();
+    groups.set(key, (groups.get(key) || 0) + 1);
+  });
+  return Array.from(groups.entries()).map(([k, v]) => `${k}：${v}人`).join(' ／ ');
+}
+
 function compareStudent(a, b) {
   return gradeSortValue(a.grade) - gradeSortValue(b.grade) || String(a.school).localeCompare(String(b.school), 'ja') || String(a.name).localeCompare(String(b.name), 'ja');
 }
@@ -256,9 +281,30 @@ function gradeSortValue(grade) {
   return ({ 小: 0, 中: 10, 高: 20 }[m[1]] || 99) + Number(m[2]);
 }
 function selectVisibleStudents() {
-  getFilteredStudents().forEach(s => selectedStudents.set(s.id, s));
+  const list = getFilteredStudents();
+  list.forEach(s => selectedStudents.set(s.id, s));
   renderStudents();
   updatePreview();
+  showStatus(`${list.length}人を選択に追加しました。`, 'ok');
+}
+
+function clearVisibleStudents() {
+  const list = getFilteredStudents();
+  list.forEach(s => selectedStudents.delete(s.id));
+  renderStudents();
+  updatePreview();
+  showStatus(`表示中の${list.length}人を選択から外しました。`, '');
+}
+
+function invertVisibleStudents() {
+  const list = getFilteredStudents();
+  list.forEach(s => {
+    if (selectedStudents.has(s.id)) selectedStudents.delete(s.id);
+    else selectedStudents.set(s.id, s);
+  });
+  renderStudents();
+  updatePreview();
+  showStatus(`表示中の${list.length}人の選択を反転しました。`, '');
 }
 
 function getDateText() {

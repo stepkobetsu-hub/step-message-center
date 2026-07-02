@@ -54,8 +54,14 @@
             <h2>送信対象生徒</h2>
             <div class="student-actions">
               <button id="selectVisibleButton" class="small-button">表示中をすべて選択</button>
-              <button id="clearSelectedButton" class="small-button danger-light">選択解除</button>
+              <button id="clearVisibleButton" class="small-button">表示中をすべて解除</button>
+              <button id="invertVisibleButton" class="small-button">表示中を反転</button>
+              <button id="clearSelectedButton" class="small-button danger-light">全選択解除</button>
             </div>
+          </div>
+
+          <div class="bulk-help">
+            <strong>一括送信の使い方：</strong> 例）学年を「中1」にして「表示中をすべて選択」→ 送らない生徒だけチェックを外してください。
           </div>
 
           <div class="selected-panel">
@@ -100,7 +106,7 @@
             <table class="student-table">
               <thead>
                 <tr>
-                  <th class="check-col"><input type="checkbox" id="visibleCheckAll" title="表示中をすべて選択/解除" /></th>
+                  <th class="check-col"><input type="checkbox" id="visibleCheckAll" title="表示中をすべて選択・解除" /></th>
                   <th>生徒名</th>
                   <th>学年</th>
                   <th>校舎</th>
