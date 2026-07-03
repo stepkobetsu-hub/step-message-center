@@ -46,7 +46,7 @@ async function load(){
   syncDate();
   renderGradeButtons();
 
-  // Ver.31.1：まずブラウザ保存の生徒一覧を即表示し、裏で最新を取得します。
+  // Ver.31.2.2：まずブラウザ保存の生徒一覧を即表示し、裏で最新を取得します。
   const cached = localStorage.getItem('step_students_v31');
   if(cached){
     try{

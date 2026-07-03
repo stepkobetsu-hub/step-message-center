@@ -28,3 +28,7 @@
 
 /* Ver.31 preview placeholder */
 .previewPlaceholder{color:#9ca3af;font-style:italic;font-family:Georgia,'Times New Roman',serif;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px;padding:1px 6px;}
+
+#decideSelectionBtn{min-width:120px;padding-left:24px;padding-right:24px;font-size:14px;}
+.settingsOpen{text-align:right;margin-top:10px;}
+.settingsCard.hidden{display:none!important;}

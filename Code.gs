@@ -1,8 +1,8 @@
 // ==================================================
-// STEP配信システム Code.gs Ver.31
+// STEP配信システム Code.gs Ver.31.2
 // 安定化版：生徒キャッシュ・欠席キャッシュ高速化・履歴代表本文
 // ==================================================
-const VERSION = 'Ver.31';
+const VERSION = 'Ver.31.2';
 const SHEET_SETTING = '設定';
 const SHEET_TEMPLATE = 'テンプレート';
 const SHEET_HISTORY = '配信履歴';
@@ -176,6 +176,7 @@ function saveHistory_(d,names,sent,attNames,errors,representativeBody){
   ]);
 }
 function dateLabel_(date){if(!date)return''; const d=date instanceof Date?date:new Date(date); return Utilities.formatDate(d,'Asia/Tokyo','yyyy/MM/dd')+'（'+'日月火水木金土'.charAt(d.getDay())+'）';}
+function dateTimeLabel_(date){if(!date)return''; const d=date instanceof Date?date:new Date(date); return Utilities.formatDate(d,'Asia/Tokyo','yyyy/MM/dd')+'（'+'日月火水木金土'.charAt(d.getDay())+'） '+Utilities.formatDate(d,'Asia/Tokyo','HH:mm');}
 function safeDate_(v){
   if(v instanceof Date && !isNaN(v.getTime())) return v;
   if(typeof v === 'number' && isFinite(v)){
@@ -251,7 +252,7 @@ function getHistory(p){
 
     out.push({
       id:id,
-      sentDateLabel:dateLabel_(sentAt),
+      sentDateLabel:dateTimeLabel_(sentAt),
       titleLine:titleLine,
       targetLine:`${targets} / ${count}件`,
       body:body
@@ -332,7 +333,7 @@ function onAbsenceFormSubmit(e){
 }
 
 function getAbsences(){
-  // Ver.31：画面表示は欠席キャッシュだけを読みます（高速化）。
+  // Ver.31.2：画面表示は欠席キャッシュだけを読みます（高速化）。
   // キャッシュが空のときだけ元の「★欠席遅刻」シートから作り直します。
   const ss=SpreadsheetApp.getActiveSpreadsheet();
   ensureAbsenceCache_(ss);
