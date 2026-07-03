@@ -52,9 +52,25 @@ async function load(){
     }catch(e){}
   }
 
-  templates=await api.getTemplates();
-  $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-  applyTemplate();
+  const cachedTemplates = localStorage.getItem('step_templates_v30_2');
+  if(cachedTemplates){
+    try{
+      templates = JSON.parse(cachedTemplates) || [];
+      $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+      applyTemplate();
+    }catch(e){}
+  }
+
+  try{
+    templates=await api.getTemplates();
+    localStorage.setItem('step_templates_v30_2', JSON.stringify(templates));
+    $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+    applyTemplate();
+  }catch(e){
+    if(!templates.length){
+      alert('テンプレートの読み込みに失敗しました：'+e.message);
+    }
+  }
 
   api.getStudents().then(list=>{
     students=list||[];
