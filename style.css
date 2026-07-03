@@ -32,3 +32,11 @@
 #decideSelectionBtn{min-width:120px;padding-left:24px;padding-right:24px;font-size:14px;}
 .settingsOpen{text-align:right;margin-top:10px;}
 .settingsCard.hidden{display:none!important;}
+
+/* Ver.31.3 履歴検索ボタン調整 */
+.historyButtonsWide{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.historySearchActions{display:flex;gap:8px;align-items:center}
+.historyArchiveActions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.searchWide{min-width:92px;padding-left:22px!important;padding-right:22px!important}
+#clearHistorySearchBtn{min-width:72px}
+#showArchiveBtn,#showNormalHistoryBtn{white-space:nowrap}
