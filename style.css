@@ -40,3 +40,6 @@
 .searchWide{min-width:92px;padding-left:22px!important;padding-right:22px!important}
 #clearHistorySearchBtn{min-width:72px}
 #showArchiveBtn,#showNormalHistoryBtn{white-space:nowrap}
+
+.receivedTime{font-size:11px;color:#8a9aaa;font-weight:500;margin-left:6px;}
+.settingsHead{display:flex;align-items:center;justify-content:space-between;gap:10px;}

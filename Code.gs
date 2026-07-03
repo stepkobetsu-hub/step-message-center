@@ -176,6 +176,7 @@ function saveHistory_(d,names,sent,attNames,errors,representativeBody){
   ]);
 }
 function dateLabel_(date){if(!date)return''; const d=date instanceof Date?date:new Date(date); return Utilities.formatDate(d,'Asia/Tokyo','yyyy/MM/dd')+'（'+'日月火水木金土'.charAt(d.getDay())+'）';}
+function timestampLabel_(v){const d=safeDate_(v); if(!d)return''; return Utilities.formatDate(d,'Asia/Tokyo','yyyy/MM/dd H:mm:ss')+'着';}
 function dateTimeLabel_(date){if(!date)return''; const d=date instanceof Date?date:new Date(date); return Utilities.formatDate(d,'Asia/Tokyo','yyyy/MM/dd')+'（'+'日月火水木金土'.charAt(d.getDay())+'） '+Utilities.formatDate(d,'Asia/Tokyo','HH:mm');}
 function safeDate_(v){
   if(v instanceof Date && !isNaN(v.getTime())) return v;
@@ -270,7 +271,7 @@ function deleteTemplate_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getS
 function ensureAbsenceCache_(ss){
   let sh=ss.getSheetByName(SHEET_ABSENCE_CACHE)||ss.insertSheet(SHEET_ABSENCE_CACHE);
   if(sh.getLastRow()<1){
-    sh.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','更新日時']);
+    sh.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','受付時刻','更新日時']);
   }
 }
 
@@ -297,7 +298,8 @@ function readAbsencesDirect_(){
       reason:r[5]||'',
       kind:r[6]||'',
       other:r[7]||'',
-      row:i+1
+      row:i+1,
+      receivedLabel: timestampLabel_(r[0])
     });
   }
   out.sort((a,b)=>a.dateObj-b.dateObj || String(a.name).localeCompare(String(b.name),'ja'));
@@ -310,9 +312,9 @@ function refreshAbsenceCache(){
   const now=new Date();
   const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
   cache.clearContents();
-  cache.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','更新日時']);
+  cache.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','受付時刻','更新日時']);
   if(list.length){
-    const rows=list.map(a=>[a.dateObj,a.dateLabel,a.isToday,a.school,a.name,a.reason,a.kind,a.other,a.row,now]);
+    const rows=list.map(a=>[a.dateObj,a.dateLabel,a.isToday,a.school,a.name,a.reason,a.kind,a.other,a.row,a.receivedLabel||'',now]);
     cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
   }
   return {ok:true,count:list.length,updatedAt:Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss'),items:list.map(({dateObj,...rest})=>rest)};
@@ -354,7 +356,8 @@ function getAbsences(){
       reason:String(r[5]||''),
       kind:String(r[6]||''),
       other:String(r[7]||''),
-      row:r[8]||''
+      row:r[8]||'',
+      receivedLabel:String(r[9]||'')
     });
   }
   return out;
