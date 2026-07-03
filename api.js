@@ -72,6 +72,7 @@ async function postJson(payload) {
 const api = {
   getStudents: () => jsonp('getStudents'),
   getTemplates: () => jsonp('getTemplates'),
+  getSettings: () => jsonp('getSettings'),
   getHistory: (params) => jsonp('getHistory', params),
   getAbsences: () => jsonp('getAbsences'),
   sendMail: (payload) => postJson({ action: 'sendSelected', ...payload }),
@@ -79,6 +80,7 @@ const api = {
   restoreHistory: (id) => postJson({ action: 'restoreHistory', id }),
   deleteHistoryPermanent: (id) => postJson({ action: 'deleteHistoryPermanent', id }),
   saveTemplate: (payload) => postJson({ action: 'saveTemplate', ...payload }),
+  saveSettings: (settings) => postJson({ action: 'saveSettings', settings }),
   saveTemplateAs: (payload) => postJson({ action: 'saveTemplateAs', ...payload }),
   deleteTemplate: (id) => postJson({ action: 'deleteTemplate', id }),
   refreshStudents: () => postJson({ action: 'refreshStudents' }),
