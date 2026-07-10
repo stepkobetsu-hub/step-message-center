@@ -6,6 +6,22 @@ function jpDateOnly(d){const x=new Date(d+'T00:00:00');return `${x.getMonth()+1}
 function jpShort(d){const x=new Date(d+'T00:00:00');return `${x.getMonth()+1}月${x.getDate()}日（${W[x.getDay()]}）`}
 function today(){return new Date().toISOString().slice(0,10)}
 function timeText(){return $('timeSelect').value==='custom'?$('customTime').value:$('timeSelect').value}
+function getDefaultTimeSlotByJapanTime(now=new Date()){
+  const jp=new Date(now.toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));
+  const minutes=jp.getHours()*60+jp.getMinutes();
+  if(minutes>=12*60+50 && minutes<14*60+20)return '13：00-14：15';
+  if(minutes>=14*60+20 && minutes<15*60+45)return '14：20-15：35';
+  if(minutes>=15*60+45 && minutes<17*60+10)return '15：45-17：00';
+  if(minutes>=17*60+10 && minutes<18*60+35)return '17：10-18：25';
+  if(minutes>=18*60+35 && minutes<20*60)return '18：35-19：50';
+  if(minutes>=20*60 && minutes<21*60+16)return '20：00-21：15';
+  return '17：10-18：25';
+}
+function setInitialTimeSlot(){
+  const select=$('timeSelect');
+  if(!select)return;
+  select.value=getDefaultTimeSlotByJapanTime();
+}
 function gradeMatchOne(g,f){if(f==='全生徒'||f==='全学年')return true;if(f==='全小学生')return g.startsWith('小');if(f==='全中学生')return g.startsWith('中');if(f==='全高校生')return g.startsWith('高');return g===f}
 function gradeMatch(g){if(!activeGrades.size)return false;if(activeGrades.has('全生徒'))return true;return [...activeGrades].some(f=>gradeMatchOne(g,f))}
 const GRADE_ORDER=['小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3'];
@@ -43,6 +59,7 @@ function toggleGrade(g){
 
 async function load(){
   $('dateInput').value=today();
+  setInitialTimeSlot();
   syncDate();
   renderGradeButtons();
 
