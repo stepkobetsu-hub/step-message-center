@@ -43,3 +43,6 @@
 
 .receivedTime{font-size:11px;color:#8a9aaa;font-weight:500;margin-left:6px;}
 .settingsHead{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+
+/* Important send fields */
+#templateSelect,#dateDisplay,#timeSelect{font-size:17px;font-weight:800}
