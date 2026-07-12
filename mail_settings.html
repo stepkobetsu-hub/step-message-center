@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>メール設定 | STEP配信システム</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#eef6ff;color:#06234a}
+    .wrap{max-width:1180px;margin:0 auto;padding:18px}
+    .top{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:12px}
+    h1{font-size:26px;margin:0}
+    .sub{font-size:13px;color:#456;margin-top:4px}
+    .card{background:white;border:1px solid #c9def5;border-radius:14px;box-shadow:0 8px 24px rgba(10,70,120,.08);padding:16px;margin-bottom:14px}
+    .toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .search{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px}
+    input{width:100%;border:1px solid #b8d1ee;border-radius:10px;padding:10px 12px;font-size:15px;background:white}
+    .btn{border:1px solid #9ec4ec;background:white;color:#075aa8;border-radius:999px;padding:8px 14px;font-weight:700;cursor:pointer}
+    .btn.primary{background:#0b63b6;color:white;border-color:#0b63b6}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .muted{color:#567;font-size:13px}
+    .list{display:grid;gap:10px}
+    .row{border:1px solid #c9def5;border-radius:12px;background:#fbfdff;padding:12px}
+    .studentHead{display:grid;grid-template-columns:120px 1fr 90px 100px auto;gap:10px;align-items:center;margin-bottom:10px}
+    .studentId{font-weight:800;color:#075aa8}
+    .studentName{font-size:17px;font-weight:800}
+    .badge{display:inline-block;border-radius:999px;background:#ffe995;padding:3px 8px;font-weight:800;font-size:12px}
+    .mailGrid{display:grid;grid-template-columns:86px 90px 1fr;gap:8px;align-items:center}
+    .mailGrid+.mailGrid{margin-top:8px}
+    .mailLabel{font-weight:800}
+    label.check{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:700;color:#075aa8}
+    label.check input{width:auto}
+    .readOnly{background:#f3f7fb;color:#345}
+    .status{font-weight:700;margin-top:8px}
+    .status.ok{color:#087443}
+    .status.err{color:#b30b20}
+    @media(max-width:760px){
+      .search{grid-template-columns:1fr}
+      .studentHead{grid-template-columns:1fr 1fr}
+      .mailGrid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>メール設定</h1>
+        <div class="sub">生徒番号・氏名で検索し、メール2〜4の登録と配信チェックを保存します。</div>
+      </div>
+      <a class="btn" href="index.html">配信画面へ</a>
+    </div>
+
+    <section class="card">
+      <div class="toolbar">
+        <b>検索</b>
+        <span id="count" class="muted">読み込み前</span>
+      </div>
+      <div class="search">
+        <input id="q" placeholder="生徒番号、氏名、校舎で検索">
+        <button id="searchBtn" class="btn primary">検索</button>
+        <button id="reloadBtn" class="btn">再読み込み</button>
+      </div>
+      <div id="globalStatus" class="status"></div>
+    </section>
+
+    <section id="list" class="list"></section>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxIH2VtgwRi50xduXgrkYrjD0yrzNfQ5vCWt1XgOzil6LZSgXNj6MJo9jPYvOkjNHdu/exec';
+    let items = [];
+    const $ = id => document.getElementById(id);
+    function escapeHTML(s){return String(s||'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))}
+    function jsonp(action, params={}){
+      return new Promise((resolve,reject)=>{
+        const cb='cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+        const script=document.createElement('script');
+        const qs=new URLSearchParams({action,callback:cb,...params});
+        const timer=setTimeout(()=>{cleanup();reject(new Error('通信がタイムアウトしました'));},20000);
+        function cleanup(){clearTimeout(timer);try{delete window[cb]}catch(e){};script.remove();}
+        window[cb]=data=>{cleanup();data&&data.error?reject(new Error(data.message||'エラーが発生しました')):resolve(data)};
+        script.onerror=()=>{cleanup();reject(new Error('通信に失敗しました'))};
+        script.src=API_URL+'?'+qs.toString();
+        document.body.appendChild(script);
+      });
+    }
+    async function postJson(payload){
+      const res=await fetch(API_URL,{method:'POST',body:JSON.stringify(payload)});
+      if(!res.ok)throw new Error('保存に失敗しました');
+      const data=await res.json();
+      if(data&&data.error)throw new Error(data.message||'保存でエラーが発生しました');
+      return data;
+    }
+    function setGlobal(msg,ok=true){$('globalStatus').textContent=msg||'';$('globalStatus').className='status '+(ok?'ok':'err')}
+    async function load(){
+      setGlobal('読み込み中です...',true);
+      items = await jsonp('getMailSettings',{q:$('q').value.trim()});
+      render();
+      setGlobal('読み込みました',true);
+    }
+    function render(){
+      $('count').textContent = items.length + '人表示';
+      $('list').innerHTML = items.map((s,idx)=>{
+        const e=s.enabled||[true,true,true,true];
+        return `<div class="row" data-idx="${idx}">
+          <div class="studentHead">
+            <div class="studentId">NO ${escapeHTML(s.id)}</div>
+            <div class="studentName">${escapeHTML(s.name)}</div>
+            <span class="badge">${escapeHTML(s.grade)}</span>
+            <span>${escapeHTML(s.school)}</span>
+            <button class="btn primary saveBtn">保存</button>
+          </div>
+          ${mailLine(idx,1,s.mail1,e[0],true)}
+          ${mailLine(idx,2,s.mail2,e[1],false)}
+          ${mailLine(idx,3,s.mail3,e[2],false)}
+          ${mailLine(idx,4,s.mail4,e[3],false)}
+          <div class="status rowStatus"></div>
+        </div>`;
+      }).join('') || '<div class="card muted">該当する生徒がいません。</div>';
+      document.querySelectorAll('.saveBtn').forEach(btn=>btn.onclick=()=>saveRow(btn.closest('.row')));
+    }
+    function mailLine(idx,n,value,enabled,readonly){
+      return `<div class="mailGrid">
+        <div class="mailLabel">メール${n}</div>
+        <label class="check"><input type="checkbox" data-enabled="${n}" ${enabled?'checked':''}>配信する</label>
+        <input data-mail="${n}" value="${escapeHTML(value||'')}" ${readonly?'readonly class="readOnly"':''} placeholder="${n===1?'生徒マスタ X列':'メールアドレス'}">
+      </div>`;
+    }
+    async function saveRow(row){
+      const idx=Number(row.dataset.idx), s=items[idx], status=row.querySelector('.rowStatus'), btn=row.querySelector('.saveBtn');
+      const enabled=[1,2,3,4].map(n=>row.querySelector(`[data-enabled="${n}"]`).checked);
+      const payload={action:'saveStudentMailSetting',id:s.id,name:s.name,school:s.school,grade:s.grade,enabled,
+        mail2:row.querySelector('[data-mail="2"]').value.trim(),
+        mail3:row.querySelector('[data-mail="3"]').value.trim(),
+        mail4:row.querySelector('[data-mail="4"]').value.trim()};
+      btn.disabled=true; status.textContent='保存中です...'; status.className='status';
+      try{
+        const res=await postJson(payload);
+        if(res.item) items[idx]=res.item;
+        status.textContent='保存しました'; status.className='status ok';
+      }catch(e){
+        status.textContent='エラー：'+e.message; status.className='status err';
+      }finally{btn.disabled=false}
+    }
+    $('searchBtn').onclick=()=>load().catch(e=>setGlobal(e.message,false));
+    $('reloadBtn').onclick=()=>load().catch(e=>setGlobal(e.message,false));
+    $('q').addEventListener('keydown',e=>{if(e.key==='Enter')$('searchBtn').click()});
+    load().catch(e=>setGlobal(e.message,false));
+  </script>
+</body>
+</html>
