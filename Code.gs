@@ -9,6 +9,7 @@ const SHEET_HISTORY = '配信履歴';
 const SHEET_STUDENT_CACHE = '生徒キャッシュ';
 const SHEET_MAIL_SETTING = 'メール設定';
 const SHEET_ABSENCE_CACHE = '欠席キャッシュ';
+const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
 const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
 const DEFAULT_ABSENCE_ID = '1c2He5p_FMXGq0Gor74wIrJKtdBvTdjmO992ZkNSVuLQ';
@@ -59,7 +60,17 @@ function jsonOut_(obj,cb){const txt=cb?`${cb}(${JSON.stringify(obj)});`:JSON.str
 function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
 function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
 function normalizeGrade_(g){return String(g||'').replace(/[０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-65248)).replace(/　| /g,'').trim();}
-function ensureStudentCache_(ss){let sh=ss.getSheetByName(SHEET_STUDENT_CACHE)||ss.insertSheet(SHEET_STUDENT_CACHE); if(sh.getLastRow()<1){sh.appendRow(['生徒番号','生徒氏名','校舎','学年','メール1','メール2','メール3','メール4','更新日時']);}}
+function ensureStudentCache_(ss){
+  let sh=ss.getSheetByName(SHEET_STUDENT_CACHE)||ss.insertSheet(SHEET_STUDENT_CACHE);
+  if(sh.getLastRow()<1){sh.appendRow(STUDENT_CACHE_HEADER);return sh;}
+  const h=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),STUDENT_CACHE_HEADER.length)).getValues()[0];
+  const needsUpdate=STUDENT_CACHE_HEADER.some((name,i)=>h[i]!==name);
+  if(needsUpdate){
+    sh.clearContents();
+    sh.appendRow(STUDENT_CACHE_HEADER);
+  }
+  return sh;
+}
 function ensureMailSetting_(ss){let sh=ss.getSheetByName(SHEET_MAIL_SETTING)||ss.insertSheet(SHEET_MAIL_SETTING); if(sh.getLastRow()<1){sh.appendRow(['生徒番号','生徒氏名','校舎','学年','メール1配信','メール2配信','メール3配信','メール4配信','更新日時']);}}
 function boolSetting_(v,def){if(v===true||v==='TRUE'||v==='true'||v===1||v==='1')return true; if(v===false||v==='FALSE'||v==='false'||v===0||v==='0')return false; return def;}
 function getMailEnabledMap_(){
@@ -82,7 +93,7 @@ function refreshStudentCache(){
   const col={active:1,id:h.indexOf('生徒番号'),name:h.indexOf('生徒氏名'),school:h.indexOf('校舎'),grade:h.indexOf('学年'),mail1:h.indexOf('メールアドレス（保護者）'),mail2:52,mail3:53,mail4:54};
   const rows=[]; const now=new Date();
   for(let i=1;i<v.length;i++){const r=v[i], flag=r[col.active]; if(!(flag===1||flag===0||flag==='1'||flag==='0')) continue; if(!r[col.id]||!r[col.name])continue; if(!r[col.mail1]&&!r[col.mail2]&&!r[col.mail3]&&!r[col.mail4])continue; let school=r[col.school]; if(school==='神領')school='神領校'; if(school==='大手')school='大手町校'; rows.push([String(r[col.id]),String(r[col.name]),String(school||''),normalizeGrade_(r[col.grade]),String(r[col.mail1]||'').trim(),String(r[col.mail2]||'').trim(),String(r[col.mail3]||'').trim(),String(r[col.mail4]||'').trim(),now]);}
-  const cache=ss.getSheetByName(SHEET_STUDENT_CACHE); cache.clearContents(); cache.appendRow(['生徒番号','生徒氏名','校舎','学年','メール1','メール2','メール3','メール4','更新日時']); if(rows.length) cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+  const cache=ss.getSheetByName(SHEET_STUDENT_CACHE); cache.clearContents(); cache.appendRow(STUDENT_CACHE_HEADER); if(rows.length) cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
   return {ok:true,count:rows.length,updatedAt:Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss')};
 }
 function installDailyStudentCacheTrigger(){
@@ -98,7 +109,7 @@ function getStudentList(){
   return out;
 }
 function getCachedStudentMap_(){
-  const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureStudentCache_(ss); const sh=ss.getSheetByName(SHEET_STUDENT_CACHE); if(sh.getLastRow()<2) refreshStudentCache();
+  const ss=SpreadsheetApp.getActiveSpreadsheet(); const sh=ensureStudentCache_(ss); if(sh.getLastRow()<2) refreshStudentCache();
   const v=sh.getDataRange().getValues(); const m={};
   for(let i=1;i<v.length;i++){const r=v[i]; if(!r[0])continue; m[String(r[0])]={id:String(r[0]),name:String(r[1]),school:String(r[2]||''),grade:String(r[3]||''),mail1:String(r[4]||'').trim(),mail2:String(r[5]||'').trim(),mail3:String(r[6]||'').trim(),mail4:String(r[7]||'').trim()};}
   return m;
