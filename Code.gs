@@ -115,6 +115,7 @@ function getCachedStudentMap_(){
   return m;
 }
 function getMailSettings_(p){
+  refreshStudentCache();
   const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureStudentCache_(ss); ensureMailSetting_(ss);
   const q=String((p&&p.q)||'').toLowerCase().trim();
   const enabledMap=getMailEnabledMap_();
