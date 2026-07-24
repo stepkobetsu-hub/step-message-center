@@ -107,7 +107,10 @@ function showConfirm(){
   const title=$('subjectInput').value;
   const d=jpShort($('dateInput').value);
   const t=timeText();
-  const showDate=(currentTemplate?.id||'').includes('tokkun');
+  const isTokkun=(currentTemplate?.id||'').includes('tokkun');
+  const isNotArrived=title.includes('まだお見えになっておりません');
+  const showDate=isTokkun||isNotArrived;
+  const guideDateText=isTokkun?`${d} ${t}`:`本日 ${t}`;
   return new Promise(resolve=>{
     let modal=$('confirmModal');
     if(!modal){
@@ -122,7 +125,7 @@ function showConfirm(){
       <dl class="confirmDetails">
         <div><dt>送信件数</dt><dd class="confirmCount">${arr.length}件</dd></div>
         <div><dt>件名</dt><dd>${escapeHTML(title)}</dd></div>
-        ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(`${d} ${t}`)}</dd></div>`:''}
+        ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(guideDateText)}</dd></div>`:''}
       </dl>
       <div class="confirmRecipients">
         <h3>送信先 <span>（${arr.length}名）</span></h3>
