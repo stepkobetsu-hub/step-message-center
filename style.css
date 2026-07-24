@@ -85,3 +85,23 @@
   .confirmCancelBtn{order:2}
   .confirmSendBtn{order:1}
 }
+
+
+/* Ver.31.4.3 ラフ案対応：送信先を左、確認項目を右に配置 */
+.confirmMain{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.9fr);gap:18px;min-height:0;margin-top:2px}
+.confirmMain .confirmRecipients{margin-top:0;min-height:0}
+.confirmMain .confirmRecipients ul{display:block;min-height:260px;max-height:300px;overflow-y:auto}
+.confirmMain .confirmRecipients li{min-height:49px;font-size:19px}
+.confirmMain .confirmDetails{display:flex;flex-direction:column;gap:10px}
+.confirmMain .confirmDetails>div{display:block;padding:12px 14px}
+.confirmMain .confirmDetails dt{margin-bottom:7px}
+.confirmMain .confirmDetails dd{font-size:20px;line-height:1.45}
+.confirmMain .confirmDetails .confirmCount{font-size:30px}
+@media(max-width:700px){
+  .confirmMain{display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+  .confirmMain .confirmRecipients{order:1}
+  .confirmMain .confirmDetails{order:2}
+  .confirmMain .confirmRecipients ul{min-height:0;max-height:220px}
+  .confirmMain .confirmDetails>div{display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px}
+  .confirmMain .confirmDetails dt{margin-bottom:0}
+}
