@@ -105,3 +105,24 @@
   .confirmMain .confirmDetails>div{display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px}
   .confirmMain .confirmDetails dt{margin-bottom:0}
 }
+
+
+/* Ver.31.4.4 低い画面でも操作ボタンと内容を重ねない */
+.confirmDialog{height:min(680px,94vh)}
+.confirmDialog h2{font-size:clamp(24px,3vw,32px);line-height:1.15}
+.confirmWarning{flex:0 0 auto;margin:8px 0 10px;padding:8px 14px}
+.confirmMain{flex:1;min-height:0;overflow:hidden}
+.confirmMain .confirmRecipients{height:100%;min-height:0}
+.confirmMain .confirmRecipients ul{flex:1;min-height:0;max-height:none}
+.confirmMain .confirmDetails{min-height:0}
+.confirmMain .confirmDetails>div{padding:9px 12px}
+.confirmMain .confirmDetails>div:first-child{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:8px}
+.confirmMain .confirmDetails>div:first-child dt{margin:0}
+.confirmMain .confirmDetails .confirmCount{font-size:27px;text-align:left}
+.confirmActions{flex:0 0 auto;margin-top:12px}
+@media(max-width:700px){
+  .confirmDialog{height:94vh}
+  .confirmMain{overflow-y:auto}
+  .confirmMain .confirmRecipients{height:auto}
+  .confirmMain .confirmRecipients ul{flex:none;max-height:220px}
+}
