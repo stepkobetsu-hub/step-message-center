@@ -102,11 +102,72 @@ async function load(){
 }
 function syncDate(){ $('dateDisplay').value=fmtDate($('dateInput').value) }
 function openNativeDate(){ $('dateInput').showPicker?.(); $('dateInput').click() }
-function showConfirm(){const arr=[...selected.values()]; const title=$('subjectInput').value; const d=jpShort($('dateInput').value); const t=timeText(); let msg=`送信件数：${arr.length}件\n件名：${title}\n`; if((currentTemplate?.id||'').includes('tokkun')) msg+=`案内日時：${d} ${t}\n`; msg+=`\n送信先：\n${arr.map(s=>`${s.grade} ${s.name}さん`).join('、')}`; return confirm(msg)}
+function showConfirm(){
+  const arr=[...selected.values()];
+  const title=$('subjectInput').value;
+  const d=jpShort($('dateInput').value);
+  const t=timeText();
+  const showDate=(currentTemplate?.id||'').includes('tokkun');
+  return new Promise(resolve=>{
+    let modal=$('confirmModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='confirmModal';
+      modal.className='confirmOverlay hidden';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML=`<section class="confirmDialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmWarning">
+      <h2 id="confirmTitle">送信内容の最終確認</h2>
+      <p id="confirmWarning" class="confirmWarning">内容を十分に確認してから送信してください</p>
+      <dl class="confirmDetails">
+        <div><dt>送信件数</dt><dd class="confirmCount">${arr.length}件</dd></div>
+        <div><dt>件名</dt><dd>${escapeHTML(title)}</dd></div>
+        ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(`${d} ${t}`)}</dd></div>`:''}
+      </dl>
+      <div class="confirmRecipients">
+        <h3>送信先</h3>
+        <ul>${arr.map(s=>`<li><span class="gradeBadge ${gradeClass(s.grade)}">${escapeHTML(s.grade)}</span><strong>${escapeHTML(s.name)}さん</strong></li>`).join('')}</ul>
+      </div>
+      <div class="confirmActions">
+        <button id="confirmCancelBtn" type="button" class="confirmCancelBtn">キャンセル</button>
+        <button id="confirmSendBtn" type="button" class="confirmSendBtn">この内容で送信する</button>
+      </div>
+    </section>`;
+    const cancelBtn=$('confirmCancelBtn');
+    const sendBtn=$('confirmSendBtn');
+    const previousFocus=document.activeElement;
+    const previousOverflow=document.body.style.overflow;
+    let settled=false;
+    const finish=confirmed=>{
+      if(settled)return;
+      settled=true;
+      sendBtn.disabled=true;
+      document.removeEventListener('keydown',onKeydown,true);
+      modal.classList.add('hidden');
+      document.body.style.overflow=previousOverflow;
+      if(previousFocus?.isConnected)previousFocus.focus();
+      resolve(confirmed);
+    };
+    const onKeydown=e=>{
+      if(e.key==='Escape'){
+        e.preventDefault();
+        finish(false);
+      }else if(e.key==='Enter'){
+        e.preventDefault();
+      }
+    };
+    cancelBtn.onclick=()=>finish(false);
+    sendBtn.onclick=()=>finish(true);
+    document.addEventListener('keydown',onKeydown,true);
+    document.body.style.overflow='hidden';
+    modal.classList.remove('hidden');
+    requestAnimationFrame(()=>cancelBtn.focus());
+  });
+}
 function showSendProgress(){let m=$('sendModal'); if(!m){m=document.createElement('div');m.id='sendModal';m.className='modalOverlay';document.body.appendChild(m)} m.innerHTML=`<div class="modalBox"><h2>送信中です…</h2><div class="progressBar"><div></div></div><p>画面を閉じずにお待ちください。</p></div>`; m.classList.remove('hidden')}
 function showSendResult(res){let m=$('sendModal'); if(!m){m=document.createElement('div');m.id='sendModal';m.className='modalOverlay';document.body.appendChild(m)} const sent=res?.sentCount||0; const errors=res?.errors||[]; const ok=errors.length===0; m.innerHTML=`<div class="modalBox ${ok?'success':'warn'}"><h2>${ok?'✅ 配信が完了しました':'⚠ 配信結果を確認してください'}</h2><div class="resultCount">送信成功：${sent}件</div><div class="resultCount">送信失敗：${errors.length}件</div>${errors.length?`<pre class="errorList">${errors.join('\n')}</pre>`:''}<button class="btn primary" onclick="document.getElementById('sendModal').classList.add('hidden')">OK</button></div>`; m.classList.remove('hidden')}
 function showSendError(e){let m=$('sendModal'); if(!m){m=document.createElement('div');m.id='sendModal';m.className='modalOverlay';document.body.appendChild(m)} m.innerHTML=`<div class="modalBox warn"><h2>送信できませんでした</h2><pre class="errorList">${e.message||e}</pre><button class="btn primary" onclick="document.getElementById('sendModal').classList.add('hidden')">OK</button></div>`; m.classList.remove('hidden')}
-async function send(){if(!selected.size){alert('送信先を選択してください');return} if(!showConfirm())return; $('status').textContent='送信中です…'; showSendProgress(); try{const at=await buildAttachments(); const res=await api.sendMail({templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpDateOnly($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:at}); if(!res || res.error) throw new Error(res?.message || '送信結果が確認できませんでした'); const errText=(res.errors&&res.errors.length)?`（エラー：${res.errors.join(' / ')}）`:''; $('status').textContent=`送信完了：${res.sentCount||0}件${errText}`; showSendResult(res); selected.clear(); files=[]; renderFiles(); renderStudents(); loadHistory();}catch(e){$('status').textContent='エラー：'+e.message; showSendError(e)}}
+async function send(){if(!selected.size){alert('送信先を選択してください');return} if(!(await showConfirm()))return; $('status').textContent='送信中です…'; showSendProgress(); try{const at=await buildAttachments(); const res=await api.sendMail({templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpDateOnly($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:at}); if(!res || res.error) throw new Error(res?.message || '送信結果が確認できませんでした'); const errText=(res.errors&&res.errors.length)?`（エラー：${res.errors.join(' / ')}）`:''; $('status').textContent=`送信完了：${res.sentCount||0}件${errText}`; showSendResult(res); selected.clear(); files=[]; renderFiles(); renderStudents(); loadHistory();}catch(e){$('status').textContent='エラー：'+e.message; showSendError(e)}}
 function renderFiles(){ $('fileList').innerHTML=files.map(f=>`📎 ${f.name}`).join('<br>') }
 async function loadHistory(){
   const archived = historyMode==='archive' ? '1' : '';
