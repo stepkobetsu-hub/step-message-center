@@ -122,14 +122,16 @@ function showConfirm(){
     modal.innerHTML=`<section class="confirmDialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmWarning">
       <h2 id="confirmTitle">送信内容の最終確認</h2>
       <p id="confirmWarning" class="confirmWarning">内容を十分に確認してから送信してください</p>
-      <dl class="confirmDetails">
-        <div><dt>送信件数</dt><dd class="confirmCount">${arr.length}件</dd></div>
-        <div><dt>件名</dt><dd>${escapeHTML(title)}</dd></div>
-        ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(guideDateText)}</dd></div>`:''}
-      </dl>
-      <div class="confirmRecipients">
-        <h3>送信先 <span>（${arr.length}名）</span></h3>
-        <ul>${arr.map(s=>`<li><span class="gradeBadge ${gradeClass(s.grade)}">${escapeHTML(s.grade)}</span><strong>${escapeHTML(s.name)}さん</strong></li>`).join('')}</ul>
+      <div class="confirmMain">
+        <div class="confirmRecipients">
+          <h3>送信先 <span>（${arr.length}名）</span></h3>
+          <ul>${arr.map(s=>`<li><span class="gradeBadge ${gradeClass(s.grade)}">${escapeHTML(s.grade)}</span><strong>${escapeHTML(s.name)}さん</strong></li>`).join('')}</ul>
+        </div>
+        <dl class="confirmDetails">
+          <div><dt>送信件数</dt><dd class="confirmCount">${arr.length}件</dd></div>
+          <div><dt>件名</dt><dd>${escapeHTML(title)}</dd></div>
+          ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(guideDateText)}</dd></div>`:''}
+        </dl>
       </div>
       <div class="confirmActions">
         <button id="confirmCancelBtn" type="button" class="confirmCancelBtn">キャンセル</button>
