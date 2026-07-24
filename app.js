@@ -125,7 +125,7 @@ function showConfirm(){
         ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(`${d} ${t}`)}</dd></div>`:''}
       </dl>
       <div class="confirmRecipients">
-        <h3>送信先</h3>
+        <h3>送信先 <span>（${arr.length}名）</span></h3>
         <ul>${arr.map(s=>`<li><span class="gradeBadge ${gradeClass(s.grade)}">${escapeHTML(s.grade)}</span><strong>${escapeHTML(s.name)}さん</strong></li>`).join('')}</ul>
       </div>
       <div class="confirmActions">
