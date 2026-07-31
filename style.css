@@ -136,3 +136,27 @@
 .absenceRefreshBtn:disabled{background:#7d97ad;cursor:wait;box-shadow:none}
 .absenceStatusRow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .absenceRefreshNotice{color:#d00020;font-size:13px;font-weight:800;white-space:nowrap}
+
+
+/* Ver.31.4.5 案内日時の切れ防止 */
+.confirmMain{grid-template-columns:minmax(0,1.3fr) minmax(320px,.95fr);gap:14px}
+.confirmMain .confirmDetails{gap:6px;overflow:visible}
+.confirmMain .confirmDetails>div{padding:7px 10px}
+.confirmMain .confirmDetails dt{margin-bottom:3px;font-size:15px;line-height:1.2}
+.confirmMain .confirmDetails dd{font-size:18px;line-height:1.25}
+.confirmMain .confirmDetails>div:first-child{grid-template-columns:94px minmax(0,1fr);min-height:48px;padding-top:6px;padding-bottom:6px}
+.confirmMain .confirmDetails .confirmCount{font-size:25px;line-height:1}
+.confirmCancelBtn,.confirmSendBtn{min-height:58px;padding-top:10px;padding-bottom:10px}
+@media(max-height:650px) and (min-width:701px){
+  .confirmOverlay{padding:10px}
+  .confirmDialog{height:96vh;padding-top:18px;padding-bottom:18px}
+  .confirmDialog h2{font-size:28px}
+  .confirmWarning{margin-top:6px;margin-bottom:8px;padding-top:7px;padding-bottom:7px}
+  .confirmActions{margin-top:8px}
+}
+@media(max-width:700px){
+  .confirmMain{grid-template-columns:1fr}
+  .confirmMain .confirmDetails>div{padding:8px 10px}
+  .confirmMain .confirmDetails dt{font-size:14px}
+  .confirmMain .confirmDetails dd{font-size:17px}
+}
