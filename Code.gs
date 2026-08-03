@@ -92,7 +92,7 @@ function refreshStudentCache(){
   const v=sh.getDataRange().getValues(); const h=v[0];
   const col={active:1,id:0,name:4,kana:5,school:h.indexOf('校舎'),grade:h.indexOf('学年'),mail1:h.indexOf('メールアドレス（保護者）'),mail2:52,mail3:53,mail4:54};
   const rows=[]; const now=new Date();
-  for(let i=1;i<v.length;i++){const r=v[i], flag=r[col.active]; if(!(flag===1||flag===0||flag==='1'||flag==='0')) continue; if(!r[col.id]||!r[col.name])continue; if(!r[col.mail1]&&!r[col.mail2]&&!r[col.mail3]&&!r[col.mail4])continue; let school=r[col.school]; if(school==='神領')school='神領校'; if(school==='大手')school='大手町校'; rows.push([String(r[col.id]),String(r[col.name]),String(r[col.kana]||''),String(school||''),normalizeGrade_(r[col.grade]),String(r[col.mail1]||'').trim(),String(r[col.mail2]||'').trim(),String(r[col.mail3]||'').trim(),String(r[col.mail4]||'').trim(),now]);}
+  for(let i=1;i<v.length;i++){const r=v[i], flag=r[col.active]; if(!(flag===1||flag===0||flag==='1'||flag==='0')) continue; if(!r[col.id]||!r[col.name])continue; let school=r[col.school]; if(school==='神領')school='神領校'; if(school==='大手')school='大手町校'; rows.push([String(r[col.id]),String(r[col.name]),String(r[col.kana]||''),String(school||''),normalizeGrade_(r[col.grade]),String(r[col.mail1]||'').trim(),String(r[col.mail2]||'').trim(),String(r[col.mail3]||'').trim(),String(r[col.mail4]||'').trim(),now]);}
   const cache=ss.getSheetByName(SHEET_STUDENT_CACHE); cache.clearContents(); cache.appendRow(STUDENT_CACHE_HEADER); if(rows.length) cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
   return {ok:true,count:rows.length,updatedAt:Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss')};
 }
