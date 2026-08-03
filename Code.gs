@@ -14,6 +14,15 @@ const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
 const DEFAULT_ABSENCE_ID = '1c2He5p_FMXGq0Gor74wIrJKtdBvTdjmO992ZkNSVuLQ';
 const ABSENCE_SHEET_NAME = '★欠席遅刻';
+const STEP_MAIL_PROVIDER_MAILAPP = 'MAILAPP';
+const STEP_MAIL_PROVIDER_BREVO = 'BREVO';
+const STEP_MAIL_SOURCE = 'STEP_MESSAGE_CENTER';
+const STEP_BREVO_FROM_EMAIL = 'admin@educrest.jp';
+const STEP_TEST_ADMIN_EMAIL = 'mintcocoajasmine@gmail.com';
+const STEP_SHARED_LOG_SS_PROPERTY = 'CHECKIN_LOG_SS_ID';
+const STEP_SHARED_LOG_SHEET = 'ログ';
+const STEP_DELIVERED_RETENTION_DAYS = 30;
+const STEP_CLEANUP_MAX_ROWS = 500;
 
 function setupStepMailSystem(){const ss=SpreadsheetApp.getActiveSpreadsheet();ensureSetting_(ss);ensureTemplate_(ss);ensureHistory_(ss);ensureStudentCache_(ss);ensureMailSetting_(ss);ensureAbsenceCache_(ss);refreshStudentCache();refreshAbsenceCache();installDailyStudentCacheTrigger();installAbsenceSubmitTrigger();SpreadsheetApp.getUi().alert('STEP配信システム '+VERSION+' 初期設定完了');}
 function ensureSetting_(ss){let sh=ss.getSheetByName(SHEET_SETTING)||ss.insertSheet(SHEET_SETTING); if(sh.getLastRow()<1){sh.appendRow(['設定名','値']);sh.appendRow(['生徒マスタID',DEFAULT_MASTER_ID]);sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);sh.appendRow(['神領校電話','0568-41-8937']);sh.appendRow(['大手町校電話','0568-27-9581']);sh.appendRow(['送信者名','個別指導STEP']);} else {const s=getSettings_(); if(!s['欠席遅刻シートID']) sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);}}
@@ -192,7 +201,10 @@ function sendSelected_(d){
     let oneSuccess=false;
     recipients.forEach(to=>{
       try{
-        MailApp.sendEmail(to,d.subject||'',body,options);
+        const result=sendStepMail_(to,d.subject||'',body,options,d.attachments||[],{
+          studentId:id,studentName:name,school:school,templateId:d.templateId||''
+        });
+        if(!result.accepted) throw new Error(result.error||'送信できませんでした');
         oneSuccess=true;
       }catch(e){
         errors.push(name+'（'+to+'）：'+e.message);
@@ -207,6 +219,132 @@ function sendSelected_(d){
 
   saveHistory_(d,names,sent,attNames,errors,representativeBody);
   return {ok:true,sentCount:sent,sentNames:names,errors};
+}
+
+function getStepMailProvider_(){
+  const value=String(getSettings_()['メール送信方式']||STEP_MAIL_PROVIDER_MAILAPP).trim().toUpperCase();
+  if(value!==STEP_MAIL_PROVIDER_MAILAPP&&value!==STEP_MAIL_PROVIDER_BREVO) throw new Error('設定シートの「メール送信方式」は MAILAPP または BREVO を指定してください');
+  return value;
+}
+
+function normalizeStepBrevoMessageId_(value){return String(value||'').trim().replace(/^<+|>+$/g,'').trim().toLowerCase();}
+
+function stepMailType_(templateId,subject){
+  const id=String(templateId||'').toLowerCase(), text=String(subject||'');
+  if(id==='mada'||text.includes('まだお見え')||text.includes('未到着'))return '未到着連絡';
+  if(text.includes('欠席')||text.includes('遅刻'))return '欠席連絡';
+  if(id.includes('tokkun')||text.includes('特訓'))return '特訓案内';
+  if(text.includes('公開模試')||text.includes('模試'))return '公開模試';
+  if(text.includes('締切'))return '締切案内';
+  if(text.includes('休校'))return '休校案内';
+  if(id==='free')return '自由記述';
+  return 'その他';
+}
+
+function sendStepMail_(to,subject,body,mailAppOptions,rawAttachments,meta){
+  const provider=getStepMailProvider_();
+  if(provider===STEP_MAIL_PROVIDER_MAILAPP){
+    MailApp.sendEmail(to,subject,body,mailAppOptions||{});
+    return {accepted:true,provider:provider,messageId:'',sendResult:'sent_mailapp'};
+  }
+  return sendStepMailViaBrevo_(to,subject,body,mailAppOptions,rawAttachments,meta||{});
+}
+
+function sendStepMailViaBrevo_(to,subject,body,options,attachments,meta){
+  const props=PropertiesService.getScriptProperties();
+  const apiKey=props.getProperty('BREVO_API_KEY');
+  if(!apiKey) throw new Error('BREVO_API_KEY がScript Propertiesに設定されていません');
+  const correlationId=Utilities.getUuid();
+  const payload={
+    sender:{name:(options&&options.name)||'個別指導STEP',email:STEP_BREVO_FROM_EMAIL},
+    to:[{email:String(to),name:(meta&&meta.studentName)||String(to)}],
+    subject:String(subject||''),
+    htmlContent:escapeStepHtml_(body).replace(/\r?\n/g,'<br>'),
+    tags:['step-message-center',stepMailType_(meta.templateId,subject)],
+    headers:{'X-Mailin-custom':'correlation_id:'+correlationId}
+  };
+  const replyTo=String(getSettings_()['返信先メール']||'').trim();
+  if(replyTo) payload.replyTo={email:replyTo};
+  if(attachments&&attachments.length) payload.attachment=attachments.map(a=>({content:String(a.data||''),name:String(a.name||'attachment')}));
+  const response=UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email',{method:'post',contentType:'application/json',headers:{'api-key':apiKey,'accept':'application/json'},payload:JSON.stringify(payload),muteHttpExceptions:true});
+  const status=response.getResponseCode();
+  let parsed={}; try{parsed=JSON.parse(response.getContentText()||'{}');}catch(ignore){}
+  if(status<200||status>=300) return {accepted:false,provider:STEP_MAIL_PROVIDER_BREVO,messageId:'',sendResult:'error',error:'Brevo送信失敗 ('+status+'): '+response.getContentText(),httpStatus:status,correlationId:correlationId};
+  const messageId=normalizeStepBrevoMessageId_(parsed.messageId);
+  const result={accepted:true,provider:STEP_MAIL_PROVIDER_BREVO,messageId:messageId,sendResult:messageId?'sent':'sent_without_message_id',httpStatus:status,correlationId:correlationId};
+  const trackingRecord={sentAt:new Date(),mailType:stepMailType_(meta.templateId,subject),studentId:meta.studentId||'',studentName:meta.studentName||'',school:meta.school||'',email:to,subject:subject,messageId:messageId,sendResult:result.sendResult,correlationId:correlationId};
+  try{
+    appendStepSharedMailLog_(trackingRecord);
+    stepTrackingRecordRecipient_(trackingRecord);
+  }catch(trackingError){
+    // ログ連携の障害で、既に成功したBrevo送信を失敗扱いにしない。
+    Logger.log('STEP mail tracking skipped: '+String(trackingError&&trackingError.message||trackingError));
+  }
+  return result;
+}
+
+function escapeStepHtml_(value){return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+function getStepSharedLogSheet_(){
+  const ssId=String(PropertiesService.getScriptProperties().getProperty(STEP_SHARED_LOG_SS_PROPERTY)||'').trim();
+  if(!ssId) throw new Error(STEP_SHARED_LOG_SS_PROPERTY+' がScript Propertiesに設定されていません');
+  const ss=SpreadsheetApp.openById(ssId);
+  const sh=ss.getSheetByName(STEP_SHARED_LOG_SHEET);
+  if(!sh) throw new Error('共通ログシート「'+STEP_SHARED_LOG_SHEET+'」が見つかりません');
+  ensureStepSharedLogHeaders_(sh);
+  return sh;
+}
+
+function ensureStepSharedLogHeaders_(sh){
+  const required=['BrevoメッセージID','照合ID','配信状態','最終イベント日時','最終配信成功日時','最終エラー理由','配信状態更新日時','送信元システム','送信種別','件名','送信時結果'];
+  const width=Math.max(sh.getLastColumn(),7), headers=sh.getRange(1,1,1,width).getValues()[0].map(String);
+  required.forEach(h=>{if(headers.indexOf(h)<0){sh.getRange(1,sh.getLastColumn()+1).setValue(h);headers.push(h);}});
+  return headers;
+}
+
+function appendStepSharedMailLog_(record){
+  const sh=getStepSharedLogSheet_(), headers=ensureStepSharedLogHeaders_(sh), row=new Array(headers.length).fill('');
+  const set=(name,value)=>{const i=headers.indexOf(name);if(i>=0)row[i]=value;};
+  set('タイムスタンプ',record.sentAt);set('生徒番号',record.studentId);set('生徒氏名',record.studentName);set('種別',record.mailType);set('校舎',record.school);set('メール送信結果',record.sendResult);set('送信先メール',record.email);
+  set('BrevoメッセージID',record.messageId);set('照合ID',record.correlationId);set('配信状態','送信受付');set('配信状態更新日時',record.sentAt);set('送信元システム',STEP_MAIL_SOURCE);set('送信種別',record.mailType);set('件名',record.subject);set('送信時結果',record.sendResult);
+  sh.appendRow(row);
+}
+
+function testStepBrevoMailToAdministrator(adminEmail){
+  const email=String(adminEmail||'').trim();
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('管理者メールアドレスを1件指定してください');
+  if(getStepMailProvider_()!==STEP_MAIL_PROVIDER_MAILAPP) throw new Error('本番切替前テストのため、設定シートの「メール送信方式」は MAILAPP のまま実行してください');
+  const subject='STEP配信 Brevo連携テスト';
+  const body='STEP配信システムのBrevo連携テストです。\n日本語表示とHTML改行を確認してください。';
+  const result=sendStepMailViaBrevo_(email,subject,body,{name:'個別指導STEP'},[],{studentId:'TEST',studentName:'管理者テスト',school:'テスト',templateId:'test'});
+  return {ok:result.accepted,to:email,from:STEP_BREVO_FROM_EMAIL,subject:subject,messageId:result.messageId,sendResult:result.sendResult,providerAfterTest:getStepMailProvider_()};
+}
+
+function testStepBrevoMailToConfiguredAdministrator(){
+  const result=testStepBrevoMailToAdministrator(STEP_TEST_ADMIN_EMAIL);
+  Logger.log(JSON.stringify({ok:result.ok,from:result.from,subject:result.subject,messageId:result.messageId,sendResult:result.sendResult,providerAfterTest:result.providerAfterTest}));
+  return result;
+}
+
+function cleanupDeliveredMailLogs_(){
+  const sh=getStepSharedLogSheet_(); if(sh.getLastRow()<2)return {ok:true,deleted:0};
+  const headers=ensureStepSharedLogHeaders_(sh), rows=sh.getRange(2,1,sh.getLastRow()-1,headers.length).getValues();
+  const idx=n=>headers.indexOf(n), cutoff=Date.now()-STEP_DELIVERED_RETENTION_DAYS*86400000, targets=[];
+  for(let i=rows.length-1;i>=0&&targets.length<STEP_CLEANUP_MAX_ROWS;i--){
+    const r=rows[i], state=String(r[idx('配信状態')]||'').toLowerCase(), source=String(r[idx('送信元システム')]||''), updated=r[idx('配信状態更新日時')], d=updated instanceof Date?updated:new Date(updated);
+    if(source===STEP_MAIL_SOURCE&&state==='delivered'&&!isNaN(d.getTime())&&d.getTime()<cutoff){
+      const email=r[idx('送信先メール')], studentId=r[idx('生徒番号')];
+      if(!stepTrackingHasProtectedFailure_(email,studentId)) targets.push(i+2);
+    }
+  }
+  targets.forEach(row=>sh.deleteRow(row));
+  return {ok:true,deleted:targets.length,limit:STEP_CLEANUP_MAX_ROWS};
+}
+
+function setupMailLogCleanupTrigger(){
+  const handler='cleanupDeliveredMailLogs_';
+  if(!ScriptApp.getProjectTriggers().some(t=>t.getHandlerFunction()===handler)) ScriptApp.newTrigger(handler).timeBased().everyDays(1).atHour(4).create();
+  return {ok:true,handler:handler};
 }
 
 function stripHistoryBody_(body){
