@@ -9,7 +9,7 @@ const SHEET_HISTORY = '配信履歴';
 const SHEET_STUDENT_CACHE = '生徒キャッシュ';
 const SHEET_MAIL_SETTING = 'メール設定';
 const SHEET_ABSENCE_CACHE = '欠席キャッシュ';
-const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
+const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','フリガナ','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
 const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
 const DEFAULT_ABSENCE_ID = '1c2He5p_FMXGq0Gor74wIrJKtdBvTdjmO992ZkNSVuLQ';
@@ -90,9 +90,9 @@ function refreshStudentCache(){
   const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureStudentCache_(ss);
   const s=getSettings_(); const masterSS=SpreadsheetApp.openById(s['生徒マスタID']||DEFAULT_MASTER_ID); const sh=masterSS.getSheetByName(MASTER_SHEET_NAME);
   const v=sh.getDataRange().getValues(); const h=v[0];
-  const col={active:1,id:h.indexOf('生徒番号'),name:h.indexOf('生徒氏名'),school:h.indexOf('校舎'),grade:h.indexOf('学年'),mail1:h.indexOf('メールアドレス（保護者）'),mail2:52,mail3:53,mail4:54};
+  const col={active:1,id:0,name:4,kana:5,school:h.indexOf('校舎'),grade:h.indexOf('学年'),mail1:h.indexOf('メールアドレス（保護者）'),mail2:52,mail3:53,mail4:54};
   const rows=[]; const now=new Date();
-  for(let i=1;i<v.length;i++){const r=v[i], flag=r[col.active]; if(!(flag===1||flag===0||flag==='1'||flag==='0')) continue; if(!r[col.id]||!r[col.name])continue; if(!r[col.mail1]&&!r[col.mail2]&&!r[col.mail3]&&!r[col.mail4])continue; let school=r[col.school]; if(school==='神領')school='神領校'; if(school==='大手')school='大手町校'; rows.push([String(r[col.id]),String(r[col.name]),String(school||''),normalizeGrade_(r[col.grade]),String(r[col.mail1]||'').trim(),String(r[col.mail2]||'').trim(),String(r[col.mail3]||'').trim(),String(r[col.mail4]||'').trim(),now]);}
+  for(let i=1;i<v.length;i++){const r=v[i], flag=r[col.active]; if(!(flag===1||flag===0||flag==='1'||flag==='0')) continue; if(!r[col.id]||!r[col.name])continue; if(!r[col.mail1]&&!r[col.mail2]&&!r[col.mail3]&&!r[col.mail4])continue; let school=r[col.school]; if(school==='神領')school='神領校'; if(school==='大手')school='大手町校'; rows.push([String(r[col.id]),String(r[col.name]),String(r[col.kana]||''),String(school||''),normalizeGrade_(r[col.grade]),String(r[col.mail1]||'').trim(),String(r[col.mail2]||'').trim(),String(r[col.mail3]||'').trim(),String(r[col.mail4]||'').trim(),now]);}
   const cache=ss.getSheetByName(SHEET_STUDENT_CACHE); cache.clearContents(); cache.appendRow(STUDENT_CACHE_HEADER); if(rows.length) cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
   return {ok:true,count:rows.length,updatedAt:Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss')};
 }
@@ -105,13 +105,13 @@ function getStudentList(){
   const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureStudentCache_(ss); const sh=ss.getSheetByName(SHEET_STUDENT_CACHE);
   if(sh.getLastRow()<2) refreshStudentCache();
   const v=sh.getDataRange().getValues(); const out=[];
-  for(let i=1;i<v.length;i++){const r=v[i]; if(!r[0]||!r[1])continue; out.push({id:String(r[0]),name:String(r[1]),school:String(r[2]||''),grade:String(r[3]||'')});}
+  for(let i=1;i<v.length;i++){const r=v[i]; if(!r[0]||!r[1])continue; out.push({id:String(r[0]),name:String(r[1]),kana:String(r[2]||''),school:String(r[3]||''),grade:String(r[4]||'')});}
   return out;
 }
 function getCachedStudentMap_(){
   const ss=SpreadsheetApp.getActiveSpreadsheet(); const sh=ensureStudentCache_(ss); if(sh.getLastRow()<2) refreshStudentCache();
   const v=sh.getDataRange().getValues(); const m={};
-  for(let i=1;i<v.length;i++){const r=v[i]; if(!r[0])continue; m[String(r[0])]={id:String(r[0]),name:String(r[1]),school:String(r[2]||''),grade:String(r[3]||''),mail1:String(r[4]||'').trim(),mail2:String(r[5]||'').trim(),mail3:String(r[6]||'').trim(),mail4:String(r[7]||'').trim()};}
+  for(let i=1;i<v.length;i++){const r=v[i]; if(!r[0])continue; m[String(r[0])]={id:String(r[0]),name:String(r[1]),kana:String(r[2]||''),school:String(r[3]||''),grade:String(r[4]||''),mail1:String(r[5]||'').trim(),mail2:String(r[6]||'').trim(),mail3:String(r[7]||'').trim(),mail4:String(r[8]||'').trim()};}
   return m;
 }
 function getMailSettings_(p){
