@@ -19,7 +19,7 @@ function jsonpOnce(action, params = {}) {
     const timer = setTimeout(() => {
       cleanup();
       reject(new Error('通信がタイムアウトしました。もう一度お試しください。'));
-    }, 20000);
+    }, 45000);
 
     function cleanup(){
       clearTimeout(timer);
