@@ -28,7 +28,51 @@ const GRADE_ORDER=['小1','小2','小3','小4','小5','小6','中1','中2','中3
 function gradeRank(g){const i=GRADE_ORDER.indexOf(g);return i>=0?i:999}
 function gradeClass(g){if(String(g).startsWith('小'))return 'gradeElem';if(String(g).startsWith('中'))return 'gradeJr';if(String(g).startsWith('高'))return 'gradeHigh';return ''}
 function normalizeStudentSearch_(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60)).replace(/[\s　]+/g,'')}
-function filtered(){const sc=$('schoolFilter').value, q=normalizeStudentSearch_($('nameFilter').value);const list=students.filter(s=>(sc==='全校舎'||s.school===sc)&&gradeMatch(s.grade)&&(!q||[s.id,s.name,s.kana].some(v=>normalizeStudentSearch_(v).includes(q))));list.sort((a,b)=>{const d=gradeRank(a.grade)-gradeRank(b.grade); if(d) return sortMode==='desc'?-d:d; return a.name.localeCompare(b.name,'ja')});return list}
+const ROMAJI_PAIRS_={
+  'きゃ':'kya','きゅ':'kyu','きょ':'kyo','ぎゃ':'gya','ぎゅ':'gyu','ぎょ':'gyo',
+  'しゃ':'sha','しゅ':'shu','しょ':'sho','じゃ':'ja','じゅ':'ju','じょ':'jo',
+  'ちゃ':'cha','ちゅ':'chu','ちょ':'cho','ぢゃ':'ja','ぢゅ':'ju','ぢょ':'jo',
+  'にゃ':'nya','にゅ':'nyu','にょ':'nyo','ひゃ':'hya','ひゅ':'hyu','ひょ':'hyo',
+  'びゃ':'bya','びゅ':'byu','びょ':'byo','ぴゃ':'pya','ぴゅ':'pyu','ぴょ':'pyo',
+  'みゃ':'mya','みゅ':'myu','みょ':'myo','りゃ':'rya','りゅ':'ryu','りょ':'ryo',
+  'うぃ':'wi','うぇ':'we','うぉ':'wo','ゔぁ':'va','ゔぃ':'vi','ゔぇ':'ve','ゔぉ':'vo',
+  'ふぁ':'fa','ふぃ':'fi','ふぇ':'fe','ふぉ':'fo','しぇ':'she','じぇ':'je','ちぇ':'che',
+  'てぃ':'ti','でぃ':'di','とぅ':'tu','どぅ':'du','つぁ':'tsa','つぃ':'tsi','つぇ':'tse','つぉ':'tso'
+};
+const ROMAJI_CHARS_={
+  'あ':'a','い':'i','う':'u','え':'e','お':'o','か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
+  'が':'ga','ぎ':'gi','ぐ':'gu','げ':'ge','ご':'go','さ':'sa','し':'shi','す':'su','せ':'se','そ':'so',
+  'ざ':'za','じ':'ji','ず':'zu','ぜ':'ze','ぞ':'zo','た':'ta','ち':'chi','つ':'tsu','て':'te','と':'to',
+  'だ':'da','ぢ':'ji','づ':'zu','で':'de','ど':'do','な':'na','に':'ni','ぬ':'nu','ね':'ne','の':'no',
+  'は':'ha','ひ':'hi','ふ':'fu','へ':'he','ほ':'ho','ば':'ba','び':'bi','ぶ':'bu','べ':'be','ぼ':'bo',
+  'ぱ':'pa','ぴ':'pi','ぷ':'pu','ぺ':'pe','ぽ':'po','ま':'ma','み':'mi','む':'mu','め':'me','も':'mo',
+  'や':'ya','ゆ':'yu','よ':'yo','ら':'ra','り':'ri','る':'ru','れ':'re','ろ':'ro','わ':'wa','を':'o',
+  'ん':'n','ゔ':'vu','ぁ':'a','ぃ':'i','ぅ':'u','ぇ':'e','ぉ':'o','ゎ':'wa'
+};
+function kanaToRomaji_(value){
+  const kana=normalizeStudentSearch_(value);
+  let out='',smallTsu=false;
+  for(let i=0;i<kana.length;i++){
+    const ch=kana[i];
+    if(ch==='っ'){smallTsu=true;continue}
+    if(ch==='ー'){
+      const vowel=(out.match(/[aeiou]$/)||[])[0];
+      if(vowel)out+=vowel;
+      continue;
+    }
+    const pair=ROMAJI_PAIRS_[kana.slice(i,i+2)];
+    let roma=pair||ROMAJI_CHARS_[ch]||ch;
+    if(pair)i++;
+    if(smallTsu){
+      if(roma.startsWith('ch'))out+='t';
+      else if(/^[bcdfghjklmpqrstvwxyz]/.test(roma))out+=roma[0];
+      smallTsu=false;
+    }
+    out+=roma;
+  }
+  return out;
+}
+function filtered(){const sc=$('schoolFilter').value, q=normalizeStudentSearch_($('nameFilter').value);const list=students.filter(s=>{const kana=s.kana||s.furigana||'';const values=[s.id,s.name,kana].map(normalizeStudentSearch_);values.push(kanaToRomaji_(kana));return(sc==='全校舎'||s.school===sc)&&gradeMatch(s.grade)&&(!q||values.some(v=>v.includes(q)))});list.sort((a,b)=>{const d=gradeRank(a.grade)-gradeRank(b.grade); if(d) return sortMode==='desc'?-d:d; return a.name.localeCompare(b.name,'ja')});return list}
 function renderStudents(){const list=filtered();$('listCount').textContent=`${list.length}人表示 / ${students.length}人取得`; $('studentList').innerHTML=list.map(s=>`<div class="studentRow ${selected.has(s.id)?'selected':''}" data-id="${s.id}"><input type="checkbox" ${selected.has(s.id)?'checked':''}><b>${s.name}</b><span class="gradeBadge ${gradeClass(s.grade)}">${s.grade}</span><span>${s.school}</span></div>`).join('')||'<div class="muted" style="padding:12px">該当する生徒がいません。</div>'; document.querySelectorAll('.studentRow').forEach(r=>r.onclick=()=>toggleStudent(r.dataset.id));renderSelected()}
 function toggleStudent(id){const s=students.find(x=>x.id===id); if(!s)return; selected.has(id)?selected.delete(id):selected.set(id,s); renderStudents()}
 function renderSelected(){const arr=[...selected.values()];$('selectedCount').textContent=`${arr.length}人`; $('selectedSummary').classList.add('hidden'); $('selectedList').innerHTML=arr.length?arr.map(s=>`<div class="selectedItem"><span class="badge ${gradeClass(s.grade)}">${s.grade}</span><b>${s.name}さん</b><span>${s.school}</span><button class="chipX" title="解除" onclick="selected.delete('${s.id}');renderStudents();updatePreview()">×</button></div>`).join(''):'<span class="muted">まだ選択されていません。</span>'}
@@ -65,7 +109,7 @@ async function load(){
   renderGradeButtons();
 
   // Ver.31.2.2：まずブラウザ保存の生徒一覧を即表示し、裏で最新を取得します。
-  const cached = localStorage.getItem('step_students_v313');
+  const cached = localStorage.getItem('step_students_v314_roman');
   if(cached){
     try{
       students = JSON.parse(cached) || [];
@@ -95,7 +139,7 @@ async function load(){
 
   api.getStudents().then(list=>{
     students=list||[];
-    localStorage.setItem('step_students_v313', JSON.stringify(students));
+    localStorage.setItem('step_students_v314_roman', JSON.stringify(students));
     renderStudents();
   }).catch(e=>{ if(!students.length) alert(e.message); });
 
@@ -193,4 +237,4 @@ async function deleteHistoryPermanent(id){if(!confirm('この履歴を完全削�
 function renderAbsences(data){const newestFirst=[...(data||[])].reverse();$('absenceList').innerHTML=newestFirst.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b>${a.receivedLabel?` <span class="receivedTime">${a.receivedLabel}</span>`:''}<div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>'; const t=$('absenceAutoStatus'); if(t){t.textContent='最終確認：'+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});}}
 async function loadAbsences(){const cached=localStorage.getItem('step_absences_v313'); if(cached){try{renderAbsences(JSON.parse(cached)||[])}catch(e){}} const data=await api.getAbsences(); localStorage.setItem('step_absences_v313',JSON.stringify(data||[])); renderAbsences(data);}
 window.archiveHistory=archiveHistory;window.restoreHistory=restoreHistory;window.deleteHistoryPermanent=deleteHistoryPermanent;
-document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v313', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');loadHistory()}; $('reloadHistory').onclick=()=>{historyMode='normal';$('showArchiveBtn').classList.remove('hidden');$('showNormalHistoryBtn').classList.add('hidden');loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{ $('historySearch').value=''; $('historyFrom').value=''; $('historyTo').value=''; historyMode='normal'; $('showArchiveBtn').classList.remove('hidden'); $('showNormalHistoryBtn').classList.add('hidden'); loadHistory();}; if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{historyMode='normal';$('showArchiveBtn').classList.remove('hidden');$('showNormalHistoryBtn').classList.add('hidden');loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{refreshAbsenceBtn.disabled=true; refreshAbsenceBtn.textContent='更新中…'; try{const r=await api.refreshAbsences(); if(r && r.items){localStorage.setItem('step_absences_v313',JSON.stringify(r.items)); renderAbsences(r.items);} else {await loadAbsences();} alert('欠席連絡を更新しました：'+(r.count||0)+'件');}catch(e){alert('欠席連絡の更新エラー：'+e.message)} finally{refreshAbsenceBtn.disabled=false; refreshAbsenceBtn.textContent='欠席連絡を手動更新';}}; setInterval(()=>{loadAbsences().catch(()=>{})},60000);});
+document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');loadHistory()}; $('reloadHistory').onclick=()=>{historyMode='normal';$('showArchiveBtn').classList.remove('hidden');$('showNormalHistoryBtn').classList.add('hidden');loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{ $('historySearch').value=''; $('historyFrom').value=''; $('historyTo').value=''; historyMode='normal'; $('showArchiveBtn').classList.remove('hidden'); $('showNormalHistoryBtn').classList.add('hidden'); loadHistory();}; if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{historyMode='normal';$('showArchiveBtn').classList.remove('hidden');$('showNormalHistoryBtn').classList.add('hidden');loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{refreshAbsenceBtn.disabled=true; refreshAbsenceBtn.textContent='更新中…'; try{const r=await api.refreshAbsences(); if(r && r.items){localStorage.setItem('step_absences_v313',JSON.stringify(r.items)); renderAbsences(r.items);} else {await loadAbsences();} alert('欠席連絡を更新しました：'+(r.count||0)+'件');}catch(e){alert('欠席連絡の更新エラー：'+e.message)} finally{refreshAbsenceBtn.disabled=false; refreshAbsenceBtn.textContent='欠席連絡を手動更新';}}; setInterval(()=>{loadAbsences().catch(()=>{})},60000);});
