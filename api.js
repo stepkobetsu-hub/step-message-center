@@ -75,6 +75,7 @@ const api = {
   getSettings: () => jsonp('getSettings'),
   getHistory: (params) => jsonp('getHistory', params),
   getAbsences: () => jsonp('getAbsences'),
+  investigateSend: (requestId) => jsonp('investigateSend', { requestId }),
   sendMail: (payload) => postJson({ action: 'sendSelected', ...payload }),
   archiveHistory: (id) => postJson({ action: 'archiveHistory', id }),
   restoreHistory: (id) => postJson({ action: 'restoreHistory', id }),
