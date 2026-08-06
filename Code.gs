@@ -66,7 +66,7 @@ function fullDateForBody_(dateValue, dateText, weekday){
   return weekday ? t+'（'+weekday+'）' : t;
 }
 function jsonOut_(obj,cb){const txt=cb?`${cb}(${JSON.stringify(obj)});`:JSON.stringify(obj); return ContentService.createTextOutput(txt).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON);}
-function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
+function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
 function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
 function normalizeGrade_(g){return String(g||'').replace(/[０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-65248)).replace(/　| /g,'').trim();}
 function ensureStudentCache_(ss){
@@ -202,7 +202,7 @@ function sendSelected_(d){
     recipients.forEach(to=>{
       try{
         const result=sendStepMail_(to,d.subject||'',body,options,d.attachments||[],{
-          studentId:id,studentName:name,school:school,templateId:d.templateId||''
+          studentId:id,studentName:name,school:school,templateId:d.templateId||'',sendRequestId:d.sendRequestId||''
         });
         if(!result.accepted) throw new Error(result.error||'送信できませんでした');
         oneSuccess=true;
@@ -272,7 +272,7 @@ function sendStepMailViaBrevo_(to,subject,body,options,attachments,meta){
   if(status<200||status>=300) return {accepted:false,provider:STEP_MAIL_PROVIDER_BREVO,messageId:'',sendResult:'error',error:'Brevo送信失敗 ('+status+'): '+response.getContentText(),httpStatus:status,correlationId:correlationId};
   const messageId=normalizeStepBrevoMessageId_(parsed.messageId);
   const result={accepted:true,provider:STEP_MAIL_PROVIDER_BREVO,messageId:messageId,sendResult:messageId?'sent':'sent_without_message_id',httpStatus:status,correlationId:correlationId};
-  const trackingRecord={sentAt:new Date(),mailType:stepMailType_(meta.templateId,subject),studentId:meta.studentId||'',studentName:meta.studentName||'',school:meta.school||'',email:to,subject:subject,messageId:messageId,sendResult:result.sendResult,correlationId:correlationId};
+  const trackingRecord={sentAt:new Date(),mailType:stepMailType_(meta.templateId,subject),studentId:meta.studentId||'',studentName:meta.studentName||'',school:meta.school||'',email:to,subject:subject,messageId:messageId,sendResult:result.sendResult,correlationId:correlationId,sendRequestId:meta.sendRequestId||''};
   try{
     appendStepSharedMailLog_(trackingRecord);
     stepTrackingRecordRecipient_(trackingRecord);
@@ -296,7 +296,7 @@ function getStepSharedLogSheet_(){
 }
 
 function ensureStepSharedLogHeaders_(sh){
-  const required=['BrevoメッセージID','照合ID','配信状態','最終イベント日時','最終配信成功日時','最終エラー理由','配信状態更新日時','送信元システム','送信種別','件名','送信時結果'];
+  const required=['BrevoメッセージID','照合ID','配信状態','最終イベント日時','最終配信成功日時','最終エラー理由','配信状態更新日時','送信元システム','送信種別','件名','送信時結果','送信要求ID'];
   const width=Math.max(sh.getLastColumn(),7), headers=sh.getRange(1,1,1,width).getValues()[0].map(String);
   required.forEach(h=>{if(headers.indexOf(h)<0){sh.getRange(1,sh.getLastColumn()+1).setValue(h);headers.push(h);}});
   return headers;
@@ -306,8 +306,27 @@ function appendStepSharedMailLog_(record){
   const sh=getStepSharedLogSheet_(), headers=ensureStepSharedLogHeaders_(sh), row=new Array(headers.length).fill('');
   const set=(name,value)=>{const i=headers.indexOf(name);if(i>=0)row[i]=value;};
   set('タイムスタンプ',record.sentAt);set('生徒番号',record.studentId);set('生徒氏名',record.studentName);set('種別',record.mailType);set('校舎',record.school);set('メール送信結果',record.sendResult);set('送信先メール',record.email);
-  set('BrevoメッセージID',record.messageId);set('照合ID',record.correlationId);set('配信状態','送信受付');set('配信状態更新日時',record.sentAt);set('送信元システム',STEP_MAIL_SOURCE);set('送信種別',record.mailType);set('件名',record.subject);set('送信時結果',record.sendResult);
+  set('BrevoメッセージID',record.messageId);set('照合ID',record.correlationId);set('配信状態','送信受付');set('配信状態更新日時',record.sentAt);set('送信元システム',STEP_MAIL_SOURCE);set('送信種別',record.mailType);set('件名',record.subject);set('送信時結果',record.sendResult);set('送信要求ID',record.sendRequestId);
   sh.appendRow(row);
+}
+
+function investigateStepSend_(requestId){
+  const id=String(requestId||'').trim();
+  if(!/^step-[a-z0-9-]{12,100}$/i.test(id)) throw new Error('送信照合IDが正しくありません');
+  const sh=getStepSharedLogSheet_(), headers=ensureStepSharedLogHeaders_(sh);
+  if(sh.getLastRow()<2)return {ok:true,found:false,requestId:id,items:[]};
+  const idx=name=>headers.indexOf(name);
+  const values=sh.getRange(2,1,sh.getLastRow()-1,headers.length).getValues();
+  const items=[];
+  for(let i=values.length-1;i>=0;i--){
+    const row=values[i];
+    if(String(row[idx('送信要求ID')]||'')!==id)continue;
+    if(String(row[idx('送信元システム')]||'')!==STEP_MAIL_SOURCE)continue;
+    const state=String(row[idx('配信状態')]||row[idx('メール送信結果')]||'送信受付');
+    const stamp=row[idx('タイムスタンプ')];
+    items.push({sentAt:stamp instanceof Date?Utilities.formatDate(stamp,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss'):String(stamp||''),studentName:String(row[idx('生徒氏名')]||''),mailType:String(row[idx('送信種別')]||row[idx('種別')]||''),state:state,error:String(row[idx('最終エラー理由')]||''),delivered:/配信完了|送信完了|delivered|sent/i.test(state)});
+  }
+  return {ok:true,found:items.length>0,requestId:id,items:items};
 }
 
 function testStepBrevoMailToAdministrator(adminEmail){
