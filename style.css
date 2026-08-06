@@ -137,6 +137,16 @@
 .absenceStatusRow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .absenceRefreshNotice{color:#d00020;font-size:13px;font-weight:800;white-space:nowrap}
 
+/* 送信エラー後の実送信調査 */
+.deliveryLogBtn{background:#e7f1ff!important;color:#075aa8!important;border-color:#8bb9ea!important;white-space:nowrap}
+.modalActions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+.deliveryItem,.deliveryUnknown,.deliveryLogDetail{border-radius:10px;padding:10px 12px;margin:8px 0;text-align:left}
+.deliveryItem{display:grid;grid-template-columns:1fr auto;gap:4px 10px;border:1px solid #b8d1ee;background:#f8fbff}
+.deliveryItem small{grid-column:1/-1;color:#567}.deliveryItem div{grid-column:1/-1}
+.deliveryOk{border-color:#77c795;background:#eefbf3}.deliveryPending{border-color:#e3bd58;background:#fff9df}.deliveryError{border-color:#e29aa5;background:#fff2f3}
+.deliveryUnknown{border:1px solid #e3bd58;background:#fff9df;color:#634d00}
+.deliveryLogModal{max-width:700px}.deliveryLogRow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;width:100%;padding:11px 12px;margin:8px 0;border:1px solid #b8d1ee;border-radius:10px;background:#f8fbff;color:#06234a;text-align:left;cursor:pointer}.deliveryLogRow small{grid-column:1/-1;color:#075aa8;font-weight:700}
+
 
 /* Ver.31.4.5 案内日時の切れ防止 */
 .confirmMain{grid-template-columns:minmax(0,1.3fr) minmax(320px,.95fr);gap:14px}
