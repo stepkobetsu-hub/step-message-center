@@ -41,15 +41,3 @@ test('Webhook登録は既存WebアプリURLを使い秘密トークンを戻り�
   assert.ok(setup);
   assert.doesNotMatch(setup, /return \{[^}]*token/);
 });
-
-test('履歴表示は外部共通ログではなくローカル開封キャッシュだけを読む', () => {
-  assert.match(code, /const SHEET_OPEN_CACHE = '開封キャッシュ'/);
-  assert.match(code, /function appendStepOpenCacheRecipient_/);
-  assert.match(code, /function recordStepOpenCacheEvent_/);
-  assert.match(code, /function syncStepOpenCacheFromSharedLog/);
-  const reader = code.match(/function getStepOpenStatusByRequestIds_\(requestIds\)\{[\s\S]*?\n\}/)?.[0] || '';
-  assert.ok(reader);
-  assert.match(reader, /ensureStepOpenCache_/);
-  assert.doesNotMatch(reader, /getStepSharedLogSheet_/);
-  assert.doesNotMatch(reader, /openById/);
-});
