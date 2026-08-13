@@ -63,9 +63,45 @@ async function postJsonOnce(payload) {
   }
 }
 
+function sendResultFromInvestigation(result) {
+  if(!result || !result.found || !Array.isArray(result.items) || !result.items.length) return null;
+  const failed = result.items.filter(item => item.error || /失敗|error|failed/i.test(String(item.state || '')));
+  const successful = result.items.filter(item => !failed.includes(item));
+  if(!successful.length) return null;
+  const sentNames = [...new Set(successful.map(item => String(item.studentName || '').trim()).filter(Boolean))];
+  return {
+    ok: true,
+    sentCount: sentNames.length || successful.length,
+    sentNames,
+    errors: failed.map(item => `${item.studentName || '送信先'}：${item.error || item.state || '送信失敗'}`),
+    recovered: true,
+    recoveryMessage: '送信ログで送信受付を自動確認しました。'
+  };
+}
+
+async function recoverSendResultFromLog(payload, originalError) {
+  const requestId = String(payload && payload.sendRequestId || '').trim();
+  if(!requestId) throw originalError;
+  const expectedStudents = new Set(Array.isArray(payload.studentIds) ? payload.studentIds.map(String) : []).size;
+  const waits = [500, 1000, 2000, 3000];
+  for(const wait of waits){
+    await delay(wait);
+    try{
+      const investigation = await jsonpOnce('investigateSend', { requestId });
+      const recovered = sendResultFromInvestigation(investigation);
+      const loggedStudents = new Set((investigation.items || []).map(item => String(item.studentName || '').trim()).filter(Boolean)).size;
+      if(recovered && (!expectedStudents || loggedStudents >= expectedStudents)) return recovered;
+    }catch(ignore){}
+  }
+  throw originalError;
+}
+
 async function postJson(payload) {
-  // メール送信は二重送信防止のため再試行しません。
-  if(payload && payload.action === 'sendSelected') return postJsonOnce(payload);
+  // メール送信POSTは二重送信防止のため再試行せず、応答障害時は同じ照合IDのログだけを確認します。
+  if(payload && payload.action === 'sendSelected') {
+    try{ return await postJsonOnce(payload); }
+    catch(e){ return recoverSendResultFromLog(payload, e); }
+  }
   return retry(() => postJsonOnce(payload), 2);
 }
 
