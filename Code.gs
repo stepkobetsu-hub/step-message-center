@@ -416,15 +416,21 @@ function safeDate_(v){
 function getHistory(p){
   ensureHistory_(SpreadsheetApp.getActiveSpreadsheet());
   const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY);
-  const v=sh.getDataRange().getValues();
-  if(v.length<=1) return [];
+  const lastRow=sh.getLastRow();
+  if(lastRow<=1) return [];
+  const limit=Math.min(Math.max(Number(p.limit)||10,1),100);
+  // 直近の履歴だけを対象にし、シート全体を読まないことで初期表示を高速化する。
+  const scanRows=Math.min(lastRow-1,Math.max(limit*10,50));
+  const startRow=lastRow-scanRows+1;
+  const v=sh.getRange(startRow,1,scanRows,Math.max(sh.getLastColumn(),14)).getValues();
   const out=[];
   const q=String(p.q||'').toLowerCase();
   const from=p.from?new Date(p.from+'T00:00:00'):null;
   const to=p.to?new Date(p.to+'T23:59:59'):null;
 
-  for(let i=v.length-1;i>=1;i--){
+  for(let i=v.length-1;i>=0;i--){
     const r=v[i];
+    const sheetIndex=startRow+i-1;
     // New schema: 履歴ID, 送信日時, 送信日, テンプレートID, 件名, 本文, 送信先, 送信件数, 案内日, 案内曜日, 案内時間, 添付名, 結果, 表示
     const wantArchived = String(p.archived||'') === '1';
     const isArchived = (r[13]===0 || r[13]==='0');
@@ -439,7 +445,7 @@ function getHistory(p){
     let guideDate=r[8];
     let guideTime=String(r[10]||'');
     let templateId=String(r[3]||'');
-    let id=String(r[0]||('row_'+i));
+    let id=String(r[0]||('row_'+sheetIndex));
 
     // Legacy schema fallback: 送信日時, テンプレートID, 件名, 本文, 対象, 送信件数, 結果...
     if(!sentAt && safeDate_(r[0])){
@@ -449,7 +455,7 @@ function getHistory(p){
       body=String(r[3]||'');
       targets=String(r[4]||'');
       count=r[5]||'';
-      id='legacy_'+i;
+      id='legacy_'+sheetIndex;
     }
 
     if(!sentAt) continue;
@@ -479,7 +485,7 @@ function getHistory(p){
     });
   }
   out.sort((a,b)=>b.sentAtMs-a.sentAtMs);
-  return out.map(item=>{delete item.sentAtMs;return item;});
+  return out.slice(0,limit).map(item=>{delete item.sentAtMs;return item;});
 }
 function archiveHistory_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY); const v=sh.getDataRange().getValues(); const legacy=String(id||'').match(/^legacy_(\d+)$/); if(legacy){const row=Number(legacy[1])+1; sh.getRange(row,14).setValue(0); return {ok:true};} for(let i=1;i<v.length;i++){if(String(v[i][0])===String(id)){sh.getRange(i+1,14).setValue(0);return{ok:true};}} return{ok:false};}
 function restoreHistory_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY); const v=sh.getDataRange().getValues(); const legacy=String(id||'').match(/^legacy_(\d+)$/); if(legacy){const row=Number(legacy[1])+1; sh.getRange(row,14).setValue(1); return {ok:true};} for(let i=1;i<v.length;i++){if(String(v[i][0])===String(id)){sh.getRange(i+1,14).setValue(1);return{ok:true};}} return{ok:false};}

@@ -233,10 +233,10 @@ async function loadHistory(){
   const loadSeq=++historyLoadSeq;
   const archived = historyMode==='archive' ? '1' : '';
   const historyList=$('historyList');
-  historyList.innerHTML='<div class="muted">送信履歴を更新中…</div>';
+  historyList.innerHTML='<div class="muted">直近10件の送信履歴を更新中…</div>';
   let data;
   try{
-    data=await api.getHistory({from:$('historyFrom').value,to:$('historyTo').value,q:$('historySearch').value,archived});
+    data=await api.getHistory({from:$('historyFrom').value,to:$('historyTo').value,q:$('historySearch').value,archived,limit:10});
   }catch(e){
     if(loadSeq===historyLoadSeq) historyList.innerHTML=`<div class="message">送信履歴の取得に失敗しました：${escapeHTML(e.message||e)}</div>`;
     return;
