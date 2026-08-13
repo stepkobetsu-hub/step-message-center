@@ -9,6 +9,7 @@ const SHEET_HISTORY = '配信履歴';
 const SHEET_STUDENT_CACHE = '生徒キャッシュ';
 const SHEET_MAIL_SETTING = 'メール設定';
 const SHEET_ABSENCE_CACHE = '欠席キャッシュ';
+const SHEET_OPEN_CACHE = '開封キャッシュ';
 const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','フリガナ','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
 const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
@@ -28,7 +29,7 @@ const STEP_BREVO_OPEN_WEBHOOK_ID_PROPERTY = 'BREVO_OPEN_WEBHOOK_ID';
 const STEP_BREVO_OPEN_WEBHOOK_DESCRIPTION = 'STEP配信システム 開封確認';
 const STEP_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxIH2VtgwRi50xduXgrkYrjD0yrzNfQ5vCWt1XgOzil6LZSgXNj6MJo9jPYvOkjNHdu/exec';
 
-function setupStepMailSystem(){const ss=SpreadsheetApp.getActiveSpreadsheet();ensureSetting_(ss);ensureTemplate_(ss);ensureHistory_(ss);ensureStudentCache_(ss);ensureMailSetting_(ss);ensureAbsenceCache_(ss);refreshStudentCache();refreshAbsenceCache();installDailyStudentCacheTrigger();installAbsenceSubmitTrigger();SpreadsheetApp.getUi().alert('STEP配信システム '+VERSION+' 初期設定完了');}
+function setupStepMailSystem(){const ss=SpreadsheetApp.getActiveSpreadsheet();ensureSetting_(ss);ensureTemplate_(ss);ensureHistory_(ss);ensureStudentCache_(ss);ensureMailSetting_(ss);ensureAbsenceCache_(ss);ensureStepOpenCache_(ss);refreshStudentCache();refreshAbsenceCache();installDailyStudentCacheTrigger();installAbsenceSubmitTrigger();SpreadsheetApp.getUi().alert('STEP配信システム '+VERSION+' 初期設定完了');}
 function ensureSetting_(ss){let sh=ss.getSheetByName(SHEET_SETTING)||ss.insertSheet(SHEET_SETTING); if(sh.getLastRow()<1){sh.appendRow(['設定名','値']);sh.appendRow(['生徒マスタID',DEFAULT_MASTER_ID]);sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);sh.appendRow(['神領校電話','0568-41-8937']);sh.appendRow(['大手町校電話','0568-27-9581']);sh.appendRow(['送信者名','個別指導STEP']);} else {const s=getSettings_(); if(!s['欠席遅刻シートID']) sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);}}
 function ensureTemplate_(ss){let sh=ss.getSheetByName(SHEET_TEMPLATE)||ss.insertSheet(SHEET_TEMPLATE); if(sh.getLastRow()<1){sh.appendRow(['ID','タイトル','件名','本文','使用','削除']); addDefaultTemplates_(sh);}}
 function addDefaultTemplates_(sh){sh.appendRow(['mada','まだお見えになっておりません','まだお見えになっておりません',`{{生徒名}}さん\n\nお世話になります。\n★本日は　{{時間帯}}で授業です。★\nまだお見えになっておりません。\n\nご確認のほどよろしくお願いいたします。\n※ご連絡いただいてる方、行き違いなどご容赦ください。\n\nまた、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。\nhttps://x.gd/WfTJM\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。\n\n個別指導ステップ`,true,'']);sh.appendRow(['tokkun','特訓部屋のお知らせ','特訓部屋のお知らせ',`{{生徒名}}さん\n\n★{{日付}}{{時間帯}}　★\nいつもお世話になっております。\n本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。\n確認テストは前回指導内容の理解度の目安です。\nこのため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。\n\n※ご都合が悪い場合、お手数ですが早めに教室まで「お電話」または「公式LINE」にてご連絡をいただけると幸いです。\n個別指導ステップ {{電話番号}}\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`,true,'']);sh.appendRow(['free','自由記述','',`{{生徒名}}さん\n\n`,true,'']);}
@@ -279,6 +280,7 @@ function sendStepMailViaBrevo_(to,subject,body,options,attachments,meta){
   const trackingRecord={sentAt:new Date(),mailType:stepMailType_(meta.templateId,subject),studentId:meta.studentId||'',studentName:meta.studentName||'',school:meta.school||'',email:to,subject:subject,messageId:messageId,sendResult:result.sendResult,correlationId:correlationId,sendRequestId:meta.sendRequestId||''};
   try{
     appendStepSharedMailLog_(trackingRecord);
+    appendStepOpenCacheRecipient_(trackingRecord);
     stepTrackingRecordRecipient_(trackingRecord);
   }catch(trackingError){
     // ログ連携の障害で、既に成功したBrevo送信を失敗扱いにしない。
@@ -312,6 +314,34 @@ function appendStepSharedMailLog_(record){
   set('タイムスタンプ',record.sentAt);set('生徒番号',record.studentId);set('生徒氏名',record.studentName);set('種別',record.mailType);set('校舎',record.school);set('メール送信結果',record.sendResult);set('送信先メール',record.email);
   set('BrevoメッセージID',record.messageId);set('照合ID',record.correlationId);set('配信状態','送信受付');set('配信状態更新日時',record.sentAt);set('送信元システム',STEP_MAIL_SOURCE);set('送信種別',record.mailType);set('件名',record.subject);set('送信時結果',record.sendResult);set('送信要求ID',record.sendRequestId);
   sh.appendRow(row);
+}
+
+function ensureStepOpenCache_(ss){
+  const headers=['送信要求ID','BrevoメッセージID','生徒氏名','送信先メール','初回開封日時','最終開封日時','開封回数','最終開封イベントキー','送信日時'];
+  const sh=ss.getSheetByName(SHEET_OPEN_CACHE)||ss.insertSheet(SHEET_OPEN_CACHE);
+  if(sh.getLastRow()<1)sh.appendRow(headers);
+  return sh;
+}
+
+function appendStepOpenCacheRecipient_(record){
+  const requestId=String(record&&record.sendRequestId||''), messageId=normalizeStepBrevoMessageId_(record&&record.messageId||'');
+  if(!requestId||!messageId)return;
+  ensureStepOpenCache_(SpreadsheetApp.getActiveSpreadsheet()).appendRow([requestId,messageId,String(record.studentName||''),String(record.email||''),'','',0,'',record.sentAt||new Date()]);
+}
+
+function recordStepOpenCacheEvent_(record,openedAt,eventKey){
+  const messageId=normalizeStepBrevoMessageId_(record&&record.messageId||''); if(!messageId)return;
+  const sh=ensureStepOpenCache_(SpreadsheetApp.getActiveSpreadsheet()), lastRow=sh.getLastRow();
+  const found=lastRow>1?sh.getRange(2,2,lastRow-1,1).createTextFinder(messageId).matchEntireCell(true).findNext():null;
+  if(!found){
+    sh.appendRow([String(record.sendRequestId||''),messageId,String(record.studentName||''),String(record.email||''),openedAt,openedAt,1,eventKey,record.sentAt||'']);
+    return;
+  }
+  const row=found.getRow(), current=sh.getRange(row,1,1,9).getValues()[0];
+  if(String(current[7]||'')===eventKey)return;
+  if(!current[4])current[4]=openedAt;
+  current[5]=openedAt;current[6]=Math.max(0,Number(current[6])||0)+1;current[7]=eventKey;
+  sh.getRange(row,1,1,9).setValues([current]);
 }
 
 function stepBrevoWebhookEventDate_(event){
@@ -353,6 +383,7 @@ function handleStepBrevoOpenWebhook_(payload,token){
     row[idx('開封回数')]=Math.max(0,Number(row[idx('開封回数')])||0)+1;
     row[idx('最終開封イベントキー')]=eventKey;
     updates.push({row:firstRow+found,values:row});
+    recordStepOpenCacheEvent_({sendRequestId:row[idx('送信要求ID')],messageId:messageId,studentName:row[idx('生徒氏名')],email:row[idx('送信先メール')],sentAt:row[idx('タイムスタンプ')]},openedAt,eventKey);
   });
   updates.forEach(update=>sh.getRange(update.row,1,1,headers.length).setValues([update.values]));
   return {ok:true,updated:updates.length,notFound:missing.length};
@@ -380,18 +411,33 @@ function setupStepBrevoOpenWebhook(){
 
 function getStepOpenStatusByRequestIds_(requestIds){
   const wanted=new Set((requestIds||[]).map(String).filter(Boolean)), result={}; if(!wanted.size)return result;
-  let sh,headers; try{sh=getStepSharedLogSheet_();headers=ensureStepSharedLogHeaders_(sh);}catch(ignore){return result;}
+  let sh; try{sh=ensureStepOpenCache_(SpreadsheetApp.getActiveSpreadsheet());}catch(ignore){return result;}
   if(sh.getLastRow()<2)return result;
-  const firstRow=Math.max(2,sh.getLastRow()-1999), values=sh.getRange(firstRow,1,sh.getLastRow()-firstRow+1,headers.length).getValues(), idx=name=>headers.indexOf(name);
+  const firstRow=Math.max(2,sh.getLastRow()-1999), values=sh.getRange(firstRow,1,sh.getLastRow()-firstRow+1,9).getValues();
   values.forEach(row=>{
-    const requestId=String(row[idx('送信要求ID')]||''); if(!wanted.has(requestId)||String(row[idx('送信元システム')]||'')!==STEP_MAIL_SOURCE)return;
+    const requestId=String(row[0]||''); if(!wanted.has(requestId))return;
     if(!result[requestId])result[requestId]={recipientCount:0,openedCount:0,lastOpenedAt:null,details:[]};
-    const item=result[requestId], opened=safeDate_(row[idx('初回開封日時')]), last=safeDate_(row[idx('最終開封日時')]);
+    const item=result[requestId], opened=safeDate_(row[4]), last=safeDate_(row[5]);
     item.recipientCount++; if(opened)item.openedCount++; if(last&&(!item.lastOpenedAt||last>item.lastOpenedAt))item.lastOpenedAt=last;
-    item.details.push({studentName:String(row[idx('生徒氏名')]||'送信先'),opened:!!opened,openedAt:opened?dateTimeLabel_(opened):''});
+    item.details.push({studentName:String(row[2]||'送信先'),opened:!!opened,openedAt:opened?dateTimeLabel_(opened):''});
   });
   Object.keys(result).forEach(id=>{const item=result[id];item.summary=item.openedCount?'開封確認あり '+item.openedCount+'/'+item.recipientCount:'開封確認なし 0/'+item.recipientCount;item.lastOpenedLabel=item.lastOpenedAt?dateTimeLabel_(item.lastOpenedAt):'';delete item.lastOpenedAt;});
   return result;
+}
+
+function syncStepOpenCacheFromSharedLog(){
+  const shared=getStepSharedLogSheet_(), headers=ensureStepSharedLogHeaders_(shared), local=ensureStepOpenCache_(SpreadsheetApp.getActiveSpreadsheet());
+  const idx=name=>headers.indexOf(name), lastRow=shared.getLastRow();
+  if(local.getLastRow()>1)local.getRange(2,1,local.getLastRow()-1,9).clearContent();
+  if(lastRow<2)return {ok:true,count:0};
+  const firstRow=Math.max(2,lastRow-1999), values=shared.getRange(firstRow,1,lastRow-firstRow+1,headers.length).getValues(), rows=[];
+  values.forEach(row=>{
+    const requestId=String(row[idx('送信要求ID')]||''), source=String(row[idx('送信元システム')]||'');
+    if(!requestId||source!==STEP_MAIL_SOURCE)return;
+    rows.push([requestId,normalizeStepBrevoMessageId_(row[idx('BrevoメッセージID')]),String(row[idx('生徒氏名')]||''),String(row[idx('送信先メール')]||''),row[idx('初回開封日時')]||'',row[idx('最終開封日時')]||'',Math.max(0,Number(row[idx('開封回数')])||0),String(row[idx('最終開封イベントキー')]||''),row[idx('タイムスタンプ')]||'']);
+  });
+  if(rows.length)local.getRange(2,1,rows.length,9).setValues(rows);
+  return {ok:true,count:rows.length};
 }
 
 function investigateStepSend_(requestId){
