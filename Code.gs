@@ -26,6 +26,7 @@ const STEP_CLEANUP_MAX_ROWS = 500;
 const STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY = 'BREVO_OPEN_WEBHOOK_TOKEN';
 const STEP_BREVO_OPEN_WEBHOOK_ID_PROPERTY = 'BREVO_OPEN_WEBHOOK_ID';
 const STEP_BREVO_OPEN_WEBHOOK_DESCRIPTION = 'STEP配信システム 開封確認';
+const STEP_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxIH2VtgwRi50xduXgrkYrjD0yrzNfQ5vCWt1XgOzil6LZSgXNj6MJo9jPYvOkjNHdu/exec';
 
 function setupStepMailSystem(){const ss=SpreadsheetApp.getActiveSpreadsheet();ensureSetting_(ss);ensureTemplate_(ss);ensureHistory_(ss);ensureStudentCache_(ss);ensureMailSetting_(ss);ensureAbsenceCache_(ss);refreshStudentCache();refreshAbsenceCache();installDailyStudentCacheTrigger();installAbsenceSubmitTrigger();SpreadsheetApp.getUi().alert('STEP配信システム '+VERSION+' 初期設定完了');}
 function ensureSetting_(ss){let sh=ss.getSheetByName(SHEET_SETTING)||ss.insertSheet(SHEET_SETTING); if(sh.getLastRow()<1){sh.appendRow(['設定名','値']);sh.appendRow(['生徒マスタID',DEFAULT_MASTER_ID]);sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);sh.appendRow(['神領校電話','0568-41-8937']);sh.appendRow(['大手町校電話','0568-27-9581']);sh.appendRow(['送信者名','個別指導STEP']);} else {const s=getSettings_(); if(!s['欠席遅刻シートID']) sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);}}
@@ -362,7 +363,8 @@ function setupStepBrevoOpenWebhook(){
   if(!apiKey)throw new Error('BREVO_API_KEY がScript Propertiesに設定されていません');
   let token=String(props.getProperty(STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY)||'').trim();
   if(!token){token=Utilities.getUuid().replace(/-/g,'')+Utilities.getUuid().replace(/-/g,'');props.setProperty(STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY,token);}
-  const serviceUrl=ScriptApp.getService().getUrl();
+  const detectedServiceUrl=String(ScriptApp.getService().getUrl()||'');
+  const serviceUrl=/\/exec(?:$|\?)/.test(detectedServiceUrl)?detectedServiceUrl:STEP_WEB_APP_URL;
   if(!serviceUrl||!/\/exec(?:$|\?)/.test(serviceUrl))throw new Error('先に既存Webアプリを新バージョンへデプロイしてください');
   const webhookUrl=serviceUrl+(serviceUrl.includes('?')?'&':'?')+'action=brevoOpenWebhook&token='+encodeURIComponent(token);
   const storedId=String(props.getProperty(STEP_BREVO_OPEN_WEBHOOK_ID_PROPERTY)||'').trim();
