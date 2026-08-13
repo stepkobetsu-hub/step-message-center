@@ -237,6 +237,7 @@ async function loadHistory(){
   let data;
   try{
     data=await api.getHistory({from:$('historyFrom').value,to:$('historyTo').value,q:$('historySearch').value,archived,limit:10});
+    data=(data||[]).slice(0,10);
   }catch(e){
     if(loadSeq===historyLoadSeq) historyList.innerHTML=`<div class="message">送信履歴の取得に失敗しました：${escapeHTML(e.message||e)}</div>`;
     return;
