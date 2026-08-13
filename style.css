@@ -38,7 +38,6 @@
 .historySearchActions{display:flex;gap:8px;align-items:center}
 .historyArchiveActions{margin-left:auto;display:flex;gap:8px;align-items:center}
 .searchWide{min-width:92px;padding-left:22px!important;padding-right:22px!important}
-.openStatus{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:6px 9px;border-radius:9px;font-size:12px;font-weight:800}.openStatus small{font-weight:600}.openConfirmed{background:#e4f7ec;color:#08733a;border:1px solid #9bd6b5}.openUnconfirmed{background:#fff6dc;color:#805b00;border:1px solid #ead28a}.openUnavailable{background:#f1f4f7;color:#607080;border:1px solid #d7e0e8}.openRecipients{display:grid;gap:5px;margin-top:8px}.openRecipient{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:6px 8px;border-radius:8px;background:#fff7df;color:#765600;font-size:12px}.openRecipient.opened{background:#e8f8ee;color:#08733a}.openRecipient small{grid-column:1/-1}
 #clearHistorySearchBtn{min-width:72px}
 #showArchiveBtn,#showNormalHistoryBtn{white-space:nowrap}
 

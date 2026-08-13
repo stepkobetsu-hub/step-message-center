@@ -23,15 +23,12 @@ const STEP_SHARED_LOG_SS_PROPERTY = 'CHECKIN_LOG_SS_ID';
 const STEP_SHARED_LOG_SHEET = 'ログ';
 const STEP_DELIVERED_RETENTION_DAYS = 30;
 const STEP_CLEANUP_MAX_ROWS = 500;
-const STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY = 'BREVO_OPEN_WEBHOOK_TOKEN';
-const STEP_BREVO_OPEN_WEBHOOK_ID_PROPERTY = 'BREVO_OPEN_WEBHOOK_ID';
-const STEP_BREVO_OPEN_WEBHOOK_DESCRIPTION = 'STEP配信システム 開封確認';
 
 function setupStepMailSystem(){const ss=SpreadsheetApp.getActiveSpreadsheet();ensureSetting_(ss);ensureTemplate_(ss);ensureHistory_(ss);ensureStudentCache_(ss);ensureMailSetting_(ss);ensureAbsenceCache_(ss);refreshStudentCache();refreshAbsenceCache();installDailyStudentCacheTrigger();installAbsenceSubmitTrigger();SpreadsheetApp.getUi().alert('STEP配信システム '+VERSION+' 初期設定完了');}
 function ensureSetting_(ss){let sh=ss.getSheetByName(SHEET_SETTING)||ss.insertSheet(SHEET_SETTING); if(sh.getLastRow()<1){sh.appendRow(['設定名','値']);sh.appendRow(['生徒マスタID',DEFAULT_MASTER_ID]);sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);sh.appendRow(['神領校電話','0568-41-8937']);sh.appendRow(['大手町校電話','0568-27-9581']);sh.appendRow(['送信者名','個別指導STEP']);} else {const s=getSettings_(); if(!s['欠席遅刻シートID']) sh.appendRow(['欠席遅刻シートID',DEFAULT_ABSENCE_ID]);}}
 function ensureTemplate_(ss){let sh=ss.getSheetByName(SHEET_TEMPLATE)||ss.insertSheet(SHEET_TEMPLATE); if(sh.getLastRow()<1){sh.appendRow(['ID','タイトル','件名','本文','使用','削除']); addDefaultTemplates_(sh);}}
 function addDefaultTemplates_(sh){sh.appendRow(['mada','まだお見えになっておりません','まだお見えになっておりません',`{{生徒名}}さん\n\nお世話になります。\n★本日は　{{時間帯}}で授業です。★\nまだお見えになっておりません。\n\nご確認のほどよろしくお願いいたします。\n※ご連絡いただいてる方、行き違いなどご容赦ください。\n\nまた、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。\nhttps://x.gd/WfTJM\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。\n\n個別指導ステップ`,true,'']);sh.appendRow(['tokkun','特訓部屋のお知らせ','特訓部屋のお知らせ',`{{生徒名}}さん\n\n★{{日付}}{{時間帯}}　★\nいつもお世話になっております。\n本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。\n確認テストは前回指導内容の理解度の目安です。\nこのため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。\n\n※ご都合が悪い場合、お手数ですが早めに教室まで「お電話」または「公式LINE」にてご連絡をいただけると幸いです。\n個別指導ステップ {{電話番号}}\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`,true,'']);sh.appendRow(['free','自由記述','',`{{生徒名}}さん\n\n`,true,'']);}
-function ensureHistory_(ss){let sh=ss.getSheetByName(SHEET_HISTORY)||ss.insertSheet(SHEET_HISTORY); const headers=['履歴ID','送信日時','送信日','テンプレートID','件名','本文','送信先','送信件数','案内日','案内曜日','案内時間','添付名','結果','表示','送信要求ID']; if(sh.getLastRow()<1){sh.appendRow(headers);return sh;} const current=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),headers.length)).getValues()[0].map(String); headers.forEach(h=>{if(current.indexOf(h)<0){sh.getRange(1,sh.getLastColumn()+1).setValue(h);current.push(h);}}); return sh;}
+function ensureHistory_(ss){let sh=ss.getSheetByName(SHEET_HISTORY)||ss.insertSheet(SHEET_HISTORY); if(sh.getLastRow()<1){sh.appendRow(['履歴ID','送信日時','送信日','テンプレートID','件名','本文','送信先','送信件数','案内日','案内曜日','案内時間','添付名','結果','表示']);}}
 function getSettings_(){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SETTING); if(!sh) return {'生徒マスタID':DEFAULT_MASTER_ID,'欠席遅刻シートID':DEFAULT_ABSENCE_ID}; const v=sh.getDataRange().getValues(); const o={}; for(let i=1;i<v.length;i++) o[v[i][0]]=v[i][1]; return o;}
 
 function getPublicSettings_(){
@@ -70,7 +67,7 @@ function fullDateForBody_(dateValue, dateText, weekday){
 }
 function jsonOut_(obj,cb){const txt=cb?`${cb}(${JSON.stringify(obj)});`:JSON.stringify(obj); return ContentService.createTextOutput(txt).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON);}
 function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
-function doPost(e){try{const route=String(e&&e.parameter&&e.parameter.action||''); const d=JSON.parse(e.postData.contents); let r; if(route==='brevoOpenWebhook')r=handleStepBrevoOpenWebhook_(d,String(e.parameter.token||'')); else if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
+function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
 function normalizeGrade_(g){return String(g||'').replace(/[０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-65248)).replace(/　| /g,'').trim();}
 function ensureStudentCache_(ss){
   let sh=ss.getSheetByName(SHEET_STUDENT_CACHE)||ss.insertSheet(SHEET_STUDENT_CACHE);
@@ -299,7 +296,7 @@ function getStepSharedLogSheet_(){
 }
 
 function ensureStepSharedLogHeaders_(sh){
-  const required=['BrevoメッセージID','照合ID','配信状態','最終イベント日時','最終配信成功日時','最終エラー理由','配信状態更新日時','送信元システム','送信種別','件名','送信時結果','送信要求ID','初回開封日時','最終開封日時','開封回数','最終開封イベントキー'];
+  const required=['BrevoメッセージID','照合ID','配信状態','最終イベント日時','最終配信成功日時','最終エラー理由','配信状態更新日時','送信元システム','送信種別','件名','送信時結果','送信要求ID'];
   const width=Math.max(sh.getLastColumn(),7), headers=sh.getRange(1,1,1,width).getValues()[0].map(String);
   required.forEach(h=>{if(headers.indexOf(h)<0){sh.getRange(1,sh.getLastColumn()+1).setValue(h);headers.push(h);}});
   return headers;
@@ -311,85 +308,6 @@ function appendStepSharedMailLog_(record){
   set('タイムスタンプ',record.sentAt);set('生徒番号',record.studentId);set('生徒氏名',record.studentName);set('種別',record.mailType);set('校舎',record.school);set('メール送信結果',record.sendResult);set('送信先メール',record.email);
   set('BrevoメッセージID',record.messageId);set('照合ID',record.correlationId);set('配信状態','送信受付');set('配信状態更新日時',record.sentAt);set('送信元システム',STEP_MAIL_SOURCE);set('送信種別',record.mailType);set('件名',record.subject);set('送信時結果',record.sendResult);set('送信要求ID',record.sendRequestId);
   sh.appendRow(row);
-}
-
-function stepBrevoWebhookEventDate_(event){
-  const epoch=Number(event&&event.ts_epoch); if(epoch>0)return new Date(epoch);
-  const seconds=Number(event&&(event.ts_event||event.ts)); if(seconds>0)return new Date(seconds*1000);
-  const parsed=safeDate_(event&&event.date); return parsed||new Date();
-}
-
-function stepBrevoOpenEventKey_(event,messageId,openedAt){
-  return [String(event&&event.id||''),messageId,String(event&&event.ts_event||event&&event.ts_epoch||openedAt.getTime())].join(':');
-}
-
-function handleStepBrevoOpenWebhook_(payload,token){
-  const props=PropertiesService.getScriptProperties();
-  const expected=String(props.getProperty(STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY)||'');
-  if(!expected||String(token||'')!==expected) throw new Error('Webhook認証に失敗しました');
-  const events=Array.isArray(payload)?payload:[payload], opens=events.filter(event=>/^(opened|uniqueopened|unique_opened)$/i.test(String(event&&event.event||'')));
-  if(!opens.length)return {ok:true,updated:0,ignored:events.length};
-  const sh=getStepSharedLogSheet_(), headers=ensureStepSharedLogHeaders_(sh);
-  if(sh.getLastRow()<2)return {ok:true,updated:0,notFound:opens.length};
-  const firstRow=Math.max(2,sh.getLastRow()-4999), rowCount=sh.getLastRow()-firstRow+1;
-  const values=sh.getRange(firstRow,1,rowCount,headers.length).getValues();
-  const idx=name=>headers.indexOf(name), updates=[], missing=[];
-  opens.forEach(event=>{
-    const messageId=normalizeStepBrevoMessageId_(event['message-id']||event.messageId||'');
-    const email=String(event.email||'').trim().toLowerCase();
-    const openedAt=stepBrevoWebhookEventDate_(event), eventKey=stepBrevoOpenEventKey_(event,messageId,openedAt);
-    let found=-1;
-    for(let i=values.length-1;i>=0;i--){
-      const rowMessageId=normalizeStepBrevoMessageId_(values[i][idx('BrevoメッセージID')]);
-      const rowEmail=String(values[i][idx('送信先メール')]||'').trim().toLowerCase();
-      if(messageId&&rowMessageId===messageId&&(!email||!rowEmail||email===rowEmail)){found=i;break;}
-    }
-    if(found<0){missing.push(messageId||'message-idなし');return;}
-    const row=values[found];
-    if(String(row[idx('最終開封イベントキー')]||'')===eventKey)return;
-    if(!row[idx('初回開封日時')])row[idx('初回開封日時')]=openedAt;
-    row[idx('最終開封日時')]=openedAt;
-    row[idx('開封回数')]=Math.max(0,Number(row[idx('開封回数')])||0)+1;
-    row[idx('最終開封イベントキー')]=eventKey;
-    updates.push({row:firstRow+found,values:row});
-  });
-  updates.forEach(update=>sh.getRange(update.row,1,1,headers.length).setValues([update.values]));
-  return {ok:true,updated:updates.length,notFound:missing.length};
-}
-
-function setupStepBrevoOpenWebhook(){
-  const props=PropertiesService.getScriptProperties(), apiKey=String(props.getProperty('BREVO_API_KEY')||'').trim();
-  if(!apiKey)throw new Error('BREVO_API_KEY がScript Propertiesに設定されていません');
-  let token=String(props.getProperty(STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY)||'').trim();
-  if(!token){token=Utilities.getUuid().replace(/-/g,'')+Utilities.getUuid().replace(/-/g,'');props.setProperty(STEP_BREVO_OPEN_WEBHOOK_TOKEN_PROPERTY,token);}
-  const serviceUrl=ScriptApp.getService().getUrl();
-  if(!serviceUrl||!/\/exec(?:$|\?)/.test(serviceUrl))throw new Error('先に既存Webアプリを新バージョンへデプロイしてください');
-  const webhookUrl=serviceUrl+(serviceUrl.includes('?')?'&':'?')+'action=brevoOpenWebhook&token='+encodeURIComponent(token);
-  const storedId=String(props.getProperty(STEP_BREVO_OPEN_WEBHOOK_ID_PROPERTY)||'').trim();
-  const request={url:webhookUrl,description:STEP_BREVO_OPEN_WEBHOOK_DESCRIPTION,events:['opened'],type:'transactional'};
-  const call=(url,method)=>UrlFetchApp.fetch(url,{method:method,contentType:'application/json',headers:{'api-key':apiKey,'accept':'application/json'},payload:JSON.stringify(request),muteHttpExceptions:true});
-  let response=storedId?call('https://api.brevo.com/v3/webhooks/'+encodeURIComponent(storedId),'put'):null;
-  if(!response||response.getResponseCode()===404)response=call('https://api.brevo.com/v3/webhooks','post');
-  const status=response.getResponseCode(); let data={}; try{data=JSON.parse(response.getContentText()||'{}');}catch(ignore){}
-  if(status<200||status>=300)throw new Error('Brevo Webhook設定失敗 ('+status+'): '+response.getContentText());
-  const webhookId=String(data.id||storedId||''); if(webhookId)props.setProperty(STEP_BREVO_OPEN_WEBHOOK_ID_PROPERTY,webhookId);
-  return {ok:true,webhookId:webhookId,event:'opened',description:STEP_BREVO_OPEN_WEBHOOK_DESCRIPTION};
-}
-
-function getStepOpenStatusByRequestIds_(requestIds){
-  const wanted=new Set((requestIds||[]).map(String).filter(Boolean)), result={}; if(!wanted.size)return result;
-  let sh,headers; try{sh=getStepSharedLogSheet_();headers=ensureStepSharedLogHeaders_(sh);}catch(ignore){return result;}
-  if(sh.getLastRow()<2)return result;
-  const firstRow=Math.max(2,sh.getLastRow()-1999), values=sh.getRange(firstRow,1,sh.getLastRow()-firstRow+1,headers.length).getValues(), idx=name=>headers.indexOf(name);
-  values.forEach(row=>{
-    const requestId=String(row[idx('送信要求ID')]||''); if(!wanted.has(requestId)||String(row[idx('送信元システム')]||'')!==STEP_MAIL_SOURCE)return;
-    if(!result[requestId])result[requestId]={recipientCount:0,openedCount:0,lastOpenedAt:null,details:[]};
-    const item=result[requestId], opened=safeDate_(row[idx('初回開封日時')]), last=safeDate_(row[idx('最終開封日時')]);
-    item.recipientCount++; if(opened)item.openedCount++; if(last&&(!item.lastOpenedAt||last>item.lastOpenedAt))item.lastOpenedAt=last;
-    item.details.push({studentName:String(row[idx('生徒氏名')]||'送信先'),opened:!!opened,openedAt:opened?dateTimeLabel_(opened):''});
-  });
-  Object.keys(result).forEach(id=>{const item=result[id];item.summary=item.openedCount?'開封確認あり '+item.openedCount+'/'+item.recipientCount:'開封確認なし 0/'+item.recipientCount;item.lastOpenedLabel=item.lastOpenedAt?dateTimeLabel_(item.lastOpenedAt):'';delete item.lastOpenedAt;});
-  return result;
 }
 
 function investigateStepSend_(requestId){
@@ -472,8 +390,7 @@ function saveHistory_(d,names,sent,attNames,errors,representativeBody){
     d.timeText||'',
     attNames.join('、'),
     errors.length?errors.join('\n'):'OK',
-    1,
-    d.sendRequestId||''
+    1
   ]);
 }
 function dateLabel_(date){if(!date)return''; const d=date instanceof Date?date:new Date(date); return Utilities.formatDate(d,'Asia/Tokyo','yyyy/MM/dd')+'（'+'日月火水木金土'.charAt(d.getDay())+'）';}
@@ -529,7 +446,6 @@ function getHistory(p){
     let guideTime=String(r[10]||'');
     let templateId=String(r[3]||'');
     let id=String(r[0]||('row_'+sheetIndex));
-    let sendRequestId=String(r[14]||'');
 
     // Legacy schema fallback: 送信日時, テンプレートID, 件名, 本文, 対象, 送信件数, 結果...
     if(!sentAt && safeDate_(r[0])){
@@ -540,7 +456,6 @@ function getHistory(p){
       targets=String(r[4]||'');
       count=r[5]||'';
       id='legacy_'+sheetIndex;
-      sendRequestId='';
     }
 
     if(!sentAt) continue;
@@ -563,7 +478,6 @@ function getHistory(p){
     out.push({
       id:id,
       sentAtMs:sentAt.getTime(),
-      sendRequestId:sendRequestId,
       sentDateLabel:dateTimeLabel_(sentAt),
       titleLine:titleLine,
       targetLine:`${targets} / ${count}件`,
@@ -571,8 +485,7 @@ function getHistory(p){
     });
   }
   out.sort((a,b)=>b.sentAtMs-a.sentAtMs);
-  const limited=out.slice(0,limit), openStatuses=getStepOpenStatusByRequestIds_(limited.map(item=>item.sendRequestId));
-  return limited.map(item=>{const status=openStatuses[item.sendRequestId];item.openStatus=status||{recipientCount:0,openedCount:0,summary:'開封確認データなし',lastOpenedLabel:'',details:[]};delete item.sentAtMs;delete item.sendRequestId;return item;});
+  return out.slice(0,limit).map(item=>{delete item.sentAtMs;return item;});
 }
 function archiveHistory_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY); const v=sh.getDataRange().getValues(); const legacy=String(id||'').match(/^legacy_(\d+)$/); if(legacy){const row=Number(legacy[1])+1; sh.getRange(row,14).setValue(0); return {ok:true};} for(let i=1;i<v.length;i++){if(String(v[i][0])===String(id)){sh.getRange(i+1,14).setValue(0);return{ok:true};}} return{ok:false};}
 function restoreHistory_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY); const v=sh.getDataRange().getValues(); const legacy=String(id||'').match(/^legacy_(\d+)$/); if(legacy){const row=Number(legacy[1])+1; sh.getRange(row,14).setValue(1); return {ok:true};} for(let i=1;i<v.length;i++){if(String(v[i][0])===String(id)){sh.getRange(i+1,14).setValue(1);return{ok:true};}} return{ok:false};}

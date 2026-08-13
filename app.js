@@ -249,10 +249,7 @@ async function loadHistory(){
       ? `<div class="historyActions"><button class="btn small primary" onclick="restoreHistory('${h.id}')">復元</button><button class="btn small danger" onclick="deleteHistoryPermanent('${h.id}')">完全削除</button></div>`
       : `<button class="xbtn" title="アーカイブ" onclick="archiveHistory('${h.id}')">×</button>`;
     const label = historyMode==='archive' ? '<span class="archiveBadge">アーカイブ</span>' : '';
-    const open=h.openStatus||{};
-    const openClass=open.openedCount>0?'openConfirmed':(open.recipientCount>0?'openUnconfirmed':'openUnavailable');
-    const openDetails=(open.details||[]).map(item=>`<div class="openRecipient ${item.opened?'opened':''}"><span>${escapeHTML(item.studentName||'送信先')}</span><b>${item.opened?'開封確認あり':'開封確認なし'}</b>${item.openedAt?`<small>${escapeHTML(item.openedAt)}</small>`:''}</div>`).join('');
-    return `<div class="historyItem">${actions}${label}<div class="historyMeta">送信日：${h.sentDateLabel}</div><div class="historyTitle">${h.titleLine}</div><div class="historyMeta">送信先：${h.targetLine}</div><div class="openStatus ${openClass}">${escapeHTML(open.summary||'開封確認データなし')}${open.lastOpenedLabel?`<small>最終 ${escapeHTML(open.lastOpenedLabel)}</small>`:''}</div><details class="details"><summary>本文・詳細を表示</summary>${openDetails?`<div class="openRecipients">${openDetails}</div>`:''}<pre>${h.body||''}</pre></details></div>`
+    return `<div class="historyItem">${actions}${label}<div class="historyMeta">送信日：${h.sentDateLabel}</div><div class="historyTitle">${h.titleLine}</div><div class="historyMeta">送信先：${h.targetLine}</div><details class="details"><summary>本文・詳細を表示</summary><pre>${h.body||''}</pre></details></div>`
   }).join('')||`<div class="muted">${emptyMsg}</div>`
 }
 function showNormalHistoryControls(){historyMode='normal';$('showArchiveBtn').classList.remove('hidden');$('showNormalHistoryBtn').classList.add('hidden')}
