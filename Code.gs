@@ -471,14 +471,15 @@ function getHistory(p){
 
     out.push({
       id:id,
+      sentAtMs:sentAt.getTime(),
       sentDateLabel:dateTimeLabel_(sentAt),
       titleLine:titleLine,
       targetLine:`${targets} / ${count}件`,
       body:body
     });
-    if(out.length>=200) break;
   }
-  return out;
+  out.sort((a,b)=>b.sentAtMs-a.sentAtMs);
+  return out.map(item=>{delete item.sentAtMs;return item;});
 }
 function archiveHistory_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY); const v=sh.getDataRange().getValues(); const legacy=String(id||'').match(/^legacy_(\d+)$/); if(legacy){const row=Number(legacy[1])+1; sh.getRange(row,14).setValue(0); return {ok:true};} for(let i=1;i<v.length;i++){if(String(v[i][0])===String(id)){sh.getRange(i+1,14).setValue(0);return{ok:true};}} return{ok:false};}
 function restoreHistory_(id){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY); const v=sh.getDataRange().getValues(); const legacy=String(id||'').match(/^legacy_(\d+)$/); if(legacy){const row=Number(legacy[1])+1; sh.getRange(row,14).setValue(1); return {ok:true};} for(let i=1;i<v.length;i++){if(String(v[i][0])===String(id)){sh.getRange(i+1,14).setValue(1);return{ok:true};}} return{ok:false};}
