@@ -47,6 +47,9 @@
 /* Important send fields */
 #templateSelect,#dateDisplay,#timeSelect{font-size:17px;font-weight:800}
 
+/* STEP配信システム アイコン */
+.top h1::before{content:"";display:inline-block;width:44px;height:44px;margin-right:11px;border-radius:11px;background:url("icons/mail-icon.svg") center/cover no-repeat;box-shadow:0 5px 14px rgba(10,70,120,.18);vertical-align:middle}
+
 
 /* Ver.31.4 最終送信確認モーダル */
 .confirmOverlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(3,15,30,.72)}

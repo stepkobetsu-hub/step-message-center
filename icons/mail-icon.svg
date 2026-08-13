@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">STEP配信システム</title>
+  <desc id="desc">青い角丸の背景に白い封筒</desc>
+  <defs>
+    <linearGradient id="bg" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1687dc"/>
+      <stop offset="1" stop-color="#07549f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M105 151h302c22 0 40 18 40 40v130c0 22-18 40-40 40H105c-22 0-40-18-40-40V191c0-22 18-40 40-40Z" fill="#fff"/>
+  <path d="m86 181 151 117c11 9 27 9 38 0l151-117" fill="none" stroke="#0b63b6" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m85 338 109-91m233 91-109-91" fill="none" stroke="#cfe8ff" stroke-width="19" stroke-linecap="round"/>
+</svg>

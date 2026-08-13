@@ -1,0 +1,14 @@
+{
+  "name": "STEP配信システム",
+  "short_name": "STEP配信",
+  "description": "個別送信・添付・履歴・欠席確認",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef6ff",
+  "theme_color": "#0b63b6",
+  "icons": [
+    {"src": "icons/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icons/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
