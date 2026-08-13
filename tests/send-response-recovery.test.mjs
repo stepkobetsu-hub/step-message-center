@@ -4,6 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const apiSource = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 function loadHelpers(){
@@ -38,4 +39,12 @@ test('送信POSTは再送せず、失敗時に照合IDのログを確認する',
 
 test('APIのキャッシュ更新番号が変更されている', () => {
   assert.match(indexSource, /api\.js\?v=20260813-send-auto-confirm-v1/);
+});
+
+test('送信成功後はページ初期表示と同じ全生徒フィルターへ戻す', () => {
+  assert.match(appSource, /activeGrades=new Set\(\['全生徒'\]\)/);
+  assert.match(appSource, /\$\('schoolFilter'\)\.value='全校舎'/);
+  assert.match(appSource, /\$\('nameFilter'\)\.value=''/);
+  assert.match(appSource, /renderGradeButtons\(\);\s*renderStudents\(\)/);
+  assert.match(indexSource, /app\.js\?v=20260813-reset-student-filter-v1/);
 });

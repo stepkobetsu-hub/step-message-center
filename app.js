@@ -227,7 +227,36 @@ async function investigateSend(requestId,targetId='sendInvestigationResult'){con
 function showSendError(e,requestId){let m=$('sendModal'); if(!m){m=document.createElement('div');m.id='sendModal';m.className='modalOverlay';document.body.appendChild(m)} m.innerHTML=`<div class="modalBox warn"><h2>送信結果を確認できませんでした</h2><pre class="errorList">${escapeHTML(e.message||e)}</pre><p>実際には送信できている場合があります。再送する前に調査してください。</p><div id="sendInvestigationResult"></div><div class="modalActions"><button id="investigateSendBtn" class="btn primary">送信できたかを調査する</button><button class="btn" onclick="document.getElementById('sendModal').classList.add('hidden')">閉じる</button></div></div>`; m.classList.remove('hidden');$('investigateSendBtn').onclick=()=>investigateSend(requestId)}
 async function showDeliveryLog(){let m=$('deliveryLogModal');if(!m){m=document.createElement('div');m.id='deliveryLogModal';m.className='modalOverlay';document.body.appendChild(m)}const list=readSendRequests();m.innerHTML=`<div class="modalBox deliveryLogModal"><h2>この端末の送信ログ</h2><div id="deliveryLogList">${list.length?list.map(x=>`<button class="deliveryLogRow" data-request-id="${escapeHTML(x.id)}"><b>${escapeHTML(x.names||'送信先')}</b><span>${escapeHTML(x.createdAt||'')}</span><small>結果を確認</small></button>`).join(''):'<div class="muted">この端末の送信記録はまだありません。</div>'}</div><button class="btn" onclick="document.getElementById('deliveryLogModal').classList.add('hidden')">閉じる</button></div>`;m.classList.remove('hidden');m.querySelectorAll('.deliveryLogRow').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;const label=btn.querySelector('b')?.textContent||'';const result=await api.investigateSend(btn.dataset.requestId).catch(e=>({found:false,error:e.message}));btn.outerHTML=`<div class="deliveryLogDetail"><b>${escapeHTML(label)}</b>${result.error?`<div class="deliveryUnknown">${escapeHTML(result.error)}</div>`:investigationSummary(result)}</div>`})}
 function ensureDeliveryLogButton(){const top=document.querySelector('.top>div:last-child');if(!top||$('deliveryLogBtn'))return;const btn=document.createElement('button');btn.id='deliveryLogBtn';btn.type='button';btn.className='btn deliveryLogBtn';btn.textContent='送信ログ確認';btn.onclick=showDeliveryLog;top.prepend(btn)}
-async function send(){if(!selected.size){alert('送信先を選択してください');return} if(!(await showConfirm()))return;const requestId=createSendRequestId();const selectedNames=[...selected.values()].map(s=>s.name).join('、');rememberSendRequest({id:requestId,names:selectedNames,createdAt:new Date().toLocaleString('ja-JP')});$('status').textContent='送信中です…'; showSendProgress(); try{const at=await buildAttachments(); const res=await api.sendMail({sendRequestId:requestId,templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpDateOnly($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:at}); if(!res || res.error) throw new Error(res?.message || '送信結果が確認できませんでした'); const errText=(res.errors&&res.errors.length)?`（エラー：${res.errors.join(' / ')}）`:''; $('status').textContent=`送信完了：${res.sentCount||0}件${errText}`; showSendResult(res); selected.clear(); files=[]; renderFiles(); renderStudents(); loadHistory();}catch(e){$('status').textContent='エラー：'+e.message; showSendError(e,requestId)}}
+async function send(){
+  if(!selected.size){alert('送信先を選択してください');return}
+  if(!(await showConfirm()))return;
+  const requestId=createSendRequestId();
+  const selectedNames=[...selected.values()].map(s=>s.name).join('、');
+  rememberSendRequest({id:requestId,names:selectedNames,createdAt:new Date().toLocaleString('ja-JP')});
+  $('status').textContent='送信中です…';
+  showSendProgress();
+  try{
+    const at=await buildAttachments();
+    const res=await api.sendMail({sendRequestId:requestId,templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpDateOnly($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:at});
+    if(!res || res.error) throw new Error(res?.message || '送信結果が確認できませんでした');
+    const errText=(res.errors&&res.errors.length)?`（エラー：${res.errors.join(' / ')}）`:'';
+    $('status').textContent=`送信完了：${res.sentCount||0}件${errText}`;
+    showSendResult(res);
+    selected.clear();
+    files=[];
+    activeGrades=new Set(['全生徒']);
+    sortMode='asc';
+    $('schoolFilter').value='全校舎';
+    $('nameFilter').value='';
+    renderFiles();
+    renderGradeButtons();
+    renderStudents();
+    loadHistory();
+  }catch(e){
+    $('status').textContent='エラー：'+e.message;
+    showSendError(e,requestId);
+  }
+}
 function renderFiles(){ $('fileList').innerHTML=files.map(f=>`📎 ${f.name}`).join('<br>') }
 async function loadHistory(){
   const loadSeq=++historyLoadSeq;
