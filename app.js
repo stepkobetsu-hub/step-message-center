@@ -299,8 +299,8 @@ function normalizeAbsenceSnapshot_(value){
 }
 function renderAbsences(snapshot,options={}){
   const normalized=normalizeAbsenceSnapshot_(snapshot);
-  const newestFirst=[...normalized.items].reverse();
-  $('absenceList').innerHTML=newestFirst.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b>${a.receivedLabel?` <span class="receivedTime">${a.receivedLabel}</span>`:''}<div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>';
+  const nearestDateFirst=[...normalized.items];
+  $('absenceList').innerHTML=nearestDateFirst.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b>${a.receivedLabel?` <span class="receivedTime">${a.receivedLabel}</span>`:''}<div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>';
   const status=$('absenceAutoStatus');
   if(status){
     const updated=absenceUpdatedLabel_(normalized);
