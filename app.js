@@ -304,7 +304,7 @@ function renderAbsences(snapshot,options={}){
   const status=$('absenceAutoStatus');
   if(status){
     const updated=absenceUpdatedLabel_(normalized);
-    status.textContent=options.local?'保存データを表示中…':(updated?`元データ更新：${updated}`:'最新データを確認しました');
+    status.textContent=options.local?'保存データを表示中…':(updated?`データ更新：${updated}`:'最新データを確認しました');
   }
 }
 async function loadAbsences(options={}){
