@@ -9,6 +9,8 @@ const SHEET_HISTORY = '配信履歴';
 const SHEET_STUDENT_CACHE = '生徒キャッシュ';
 const SHEET_MAIL_SETTING = 'メール設定';
 const SHEET_ABSENCE_CACHE = '欠席キャッシュ';
+const ABSENCE_CACHE_MAX_AGE_MINUTES = 10;
+const ABSENCE_CACHE_UPDATED_PROPERTY = 'ABSENCE_CACHE_UPDATED_AT_MS';
 const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','フリガナ','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
 const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
@@ -66,7 +68,7 @@ function fullDateForBody_(dateValue, dateText, weekday){
   return weekday ? t+'（'+weekday+'）' : t;
 }
 function jsonOut_(obj,cb){const txt=cb?`${cb}(${JSON.stringify(obj)});`:JSON.stringify(obj); return ContentService.createTextOutput(txt).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON);}
-function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
+function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='getAbsenceSnapshot')r=getAbsenceSnapshot(); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
 function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
 function normalizeGrade_(g){return String(g||'').replace(/[０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-65248)).replace(/　| /g,'').trim();}
 function ensureStudentCache_(ss){
@@ -532,17 +534,25 @@ function readAbsencesDirect_(){
 }
 
 function refreshAbsenceCache(){
-  const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureAbsenceCache_(ss);
-  const list=readAbsencesDirect_();
-  const now=new Date();
-  const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
-  cache.clearContents();
-  cache.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','受付時刻','更新日時']);
-  if(list.length){
-    const rows=list.map(a=>[a.dateObj,a.dateLabel,a.isToday,a.school,a.name,a.reason,a.kind,a.other,a.row,a.receivedLabel||'',now]);
-    cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+  const lock=LockService.getScriptLock();
+  lock.waitLock(15000);
+  try{
+    const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureAbsenceCache_(ss);
+    const list=readAbsencesDirect_();
+    const now=new Date();
+    const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
+    cache.clearContents();
+    cache.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','受付時刻','更新日時']);
+    if(list.length){
+      const rows=list.map(a=>[a.dateObj,a.dateLabel,a.isToday,a.school,a.name,a.reason,a.kind,a.other,a.row,a.receivedLabel||'',now]);
+      cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+    }
+    PropertiesService.getScriptProperties().setProperty(ABSENCE_CACHE_UPDATED_PROPERTY,String(now.getTime()));
+    const updatedAt=now.toISOString();
+    return {ok:true,count:list.length,updatedAt:updatedAt,items:list.map(item=>{const {dateObj,...rest}=item;return {...rest,cacheUpdatedAt:updatedAt};})};
+  }finally{
+    lock.releaseLock();
   }
-  return {ok:true,count:list.length,updatedAt:Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss'),items:list.map(({dateObj,...rest})=>rest)};
 }
 
 function installAbsenceSubmitTrigger(){
@@ -559,17 +569,19 @@ function onAbsenceFormSubmit(e){
   refreshAbsenceCache();
 }
 
-function getAbsences(){
-  // Ver.31.2：画面表示は欠席キャッシュだけを読みます（高速化）。
-  // キャッシュが空のときだけ元の「★欠席遅刻」シートから作り直します。
+function getAbsenceSnapshot(){
   const ss=SpreadsheetApp.getActiveSpreadsheet();
   ensureAbsenceCache_(ss);
-  const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
-  if(cache.getLastRow()<2){
-    refreshAbsenceCache();
+  const props=PropertiesService.getScriptProperties();
+  const updatedMs=Number(props.getProperty(ABSENCE_CACHE_UPDATED_PROPERTY)||0);
+  const maxAgeMs=ABSENCE_CACHE_MAX_AGE_MINUTES*60*1000;
+  if(!updatedMs || Date.now()-updatedMs>=maxAgeMs){
+    return refreshAbsenceCache();
   }
+  const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
   const values=cache.getDataRange().getValues();
   const out=[];
+  const updatedAt=new Date(updatedMs).toISOString();
   for(let i=1;i<values.length;i++){
     const r=values[i];
     if(!r[0]) continue;
@@ -582,10 +594,15 @@ function getAbsences(){
       kind:String(r[6]||''),
       other:String(r[7]||''),
       row:r[8]||'',
-      receivedLabel:String(r[9]||'')
+      receivedLabel:String(r[9]||''),
+      cacheUpdatedAt:updatedAt
     });
   }
-  return out;
+  return {ok:true,count:out.length,updatedAt:updatedAt,items:out};
+}
+
+function getAbsences(){
+  return getAbsenceSnapshot().items;
 }
 
 

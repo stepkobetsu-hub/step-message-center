@@ -111,6 +111,11 @@ const api = {
   getSettings: () => jsonp('getSettings'),
   getHistory: (params) => jsonp('getHistory', params),
   getAbsences: () => jsonp('getAbsences'),
+  getAbsenceSnapshot: async () => {
+    const result=await jsonp('getAbsenceSnapshot');
+    if(result && Array.isArray(result.items))return result;
+    return {items:await jsonp('getAbsences'),updatedAt:''};
+  },
   investigateSend: (requestId) => jsonp('investigateSend', { requestId }),
   sendMail: (payload) => postJson({ action: 'sendSelected', ...payload }),
   archiveHistory: (id) => postJson({ action: 'archiveHistory', id }),
