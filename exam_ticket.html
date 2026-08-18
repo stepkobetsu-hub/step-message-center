@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#14532d">
+  <title>愛知全県模試 受験票作成</title>
+  <link rel="stylesheet" href="exam_ticket.css?v=20260818-1">
+</head>
+<body>
+  <div class="appShell">
+    <header class="appHeader">
+      <div>
+        <p class="eyebrow">個別指導ステップ</p>
+        <h1>愛知全県模試 受験票作成</h1>
+        <p class="subtitle">受験回と生徒を選んで、A4受験票をまとめて印刷します。</p>
+      </div>
+      <a class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081801#gid=2026081801" target="_blank" rel="noopener noreferrer">受験番号を訂正する</a>
+    </header>
+
+    <div id="status" class="status" role="status">生徒情報を読み込んでいます…</div>
+
+    <main class="layout">
+      <section class="panel controlsPanel">
+        <div class="stepHeading"><span>1</span><div><h2>受験回を選択</h2><p>タイトルの「第〇回」に反映されます。</p></div></div>
+        <label class="fieldLabel" for="roundSelect">愛知全県模試</label>
+        <select id="roundSelect" class="input roundSelect">
+          <option value="1">第1回</option><option value="2">第2回</option><option value="3">第3回</option>
+          <option value="4">第4回</option><option value="5">第5回</option><option value="6">第6回</option>
+        </select>
+
+        <hr>
+        <div class="stepHeading"><span>2</span><div><h2>印刷する生徒を選択</h2><p>B列が1の在籍中学生だけを表示します。</p></div></div>
+
+        <div class="filterGrid">
+          <div><label class="fieldLabel" for="campusFilter">校舎</label><select id="campusFilter" class="input"><option value="all">全校舎</option><option value="神領">神領校</option><option value="大手">大手町校</option></select></div>
+          <div><span class="fieldLabel">学年（複数選択可）</span><div id="gradeButtons" class="gradeButtons"></div></div>
+        </div>
+        <label class="fieldLabel" for="searchInput">生徒検索</label>
+        <input id="searchInput" class="input" placeholder="生徒コード・氏名・フリガナで検索">
+
+        <div class="selectionBox">
+          <div class="selectionHead"><strong>現在選択中</strong><span id="selectedCount">0人</span></div>
+          <div id="selectedList" class="selectedList"><span class="muted">まだ選択されていません。</span></div>
+        </div>
+
+        <div class="listActions">
+          <span id="listCount">0人表示</span>
+          <div><button id="selectVisibleBtn" type="button" class="smallBtn">表示中を全選択</button><button id="clearBtn" type="button" class="smallBtn danger">全選択解除</button><button id="refreshBtn" type="button" class="smallBtn">生徒情報を更新</button></div>
+        </div>
+        <div id="studentList" class="studentList"></div>
+      </section>
+
+      <aside class="panel previewPanel">
+        <div class="stepHeading"><span>3</span><div><h2>確認して印刷</h2><p>選択した生徒は1人につきA4用紙1枚です。</p></div></div>
+        <div id="ticketPreview" class="ticketPreview"></div>
+        <button id="printBtn" type="button" class="printBtn" disabled>選択した受験票を印刷する</button>
+        <p class="printNote">印刷画面では「A4」「倍率100%」を選んでください。</p>
+      </aside>
+    </main>
+  </div>
+  <div id="printArea" class="printArea" aria-hidden="true"></div>
+  <script src="exam_ticket.js?v=20260818-1"></script>
+</body>
+</html>
