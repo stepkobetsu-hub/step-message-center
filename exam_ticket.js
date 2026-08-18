@@ -14,7 +14,8 @@ async function postJson(payload){const controller=new AbortController();const ti
 function setStatus(message,type=''){const el=$('status');el.textContent=message;el.className=`status ${type}`.trim();}
 function currentAcademicYear_(){const now=new Date();return now.getMonth()>=3?now.getFullYear():now.getFullYear()-1;}
 function selectedYear_(){return Number($('yearSelect').value)||currentAcademicYear_();}
-function setupYearOptions_(){const current=currentAcademicYear_();$('yearSelect').innerHTML=[current,current+1].map(y=>`<option value="${y}">${y}年度</option>`).join('');}
+function yearAvailable_(year,now=new Date()){return now>=new Date(year,2,1);}
+function setupYearOptions_(){const current=currentAcademicYear_(),next=current+1,available=yearAvailable_(next);$('yearSelect').innerHTML=`<option value="${current}">${current}年度</option><option value="${next}" ${available?'':'disabled'}>${next}年度${available?'':'（3月1日から選択可）'}</option>`;const notice=$('yearNotice');notice.hidden=available;notice.textContent=`※${next}年度は${next}年3月1日から選択できます。それ以前は選択できません。`;}
 function advanceGrade_(grade,steps){const index=GRADE_ORDER.indexOf(grade);if(index<0)return'';return GRADE_ORDER[index+steps]||'';}
 function filtered(){const campus=$('campusFilter').value,q=normalize($('searchInput').value);return students.filter(s=>(campus==='all'||s.campus===campus)&&activeGrades.has(s.grade)&&(!q||[s.studentId,s.name,s.kana].map(normalize).some(v=>v.includes(q)))).sort((a,b)=>Number(a.examNumber)-Number(b.examNumber));}
 function renderGradeButtons(){$('gradeButtons').innerHTML=TARGET_GRADES.map(g=>`<button type="button" class="gradeBtn ${activeGrades.has(g)?'active':''}" data-grade="${g}">${g}</button>`).join('');document.querySelectorAll('.gradeBtn').forEach(btn=>btn.onclick=()=>{activeGrades.has(btn.dataset.grade)?activeGrades.delete(btn.dataset.grade):activeGrades.add(btn.dataset.grade);renderGradeButtons();renderStudents();});}
