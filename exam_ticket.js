@@ -37,7 +37,36 @@ function renderPreview(){const first=[...selected.values()].sort((a,b)=>Number(a
 function fallbackStudent_(s){const id=String(s.id||'');const grade=String(s.grade||'').replace('小1','小１').replace('小2','小２').replace('小3','小３').replace('小4','小４').replace('小5','小５').replace('小6','小６').replace('中1','中１').replace('中2','中２').replace('中3','中３');const school=String(s.school||'');return {studentId:id,name:String(s.name||''),kana:String(s.kana||s.furigana||''),baseGrade:grade,grade,campus:school.includes('神領')?'神領':school.includes('大手')?'大手':school,examNumber:INITIAL_EXAM_NUMBERS[id]};}
 function numberFitsGrade_(number,grade){const n=Number(number),start={'中１':1000,'中２':2000,'中３':3000,'小４':4000,'小５':5000,'小６':6000}[grade];return Boolean(start&&n>start&&n<start+1000);}
 function examNumberWarnings_(list){const owners=new Map(),warnings=[];(list||[]).forEach(s=>{const number=String(s.examNumber||'').trim();if(!number)return;const previous=owners.get(number);if(previous)warnings.push(`受験番号${number}が重複しています（${previous}・${s.name}）`);else owners.set(number,s.name);});return [...new Set(warnings)];}
-function fallbackStudents_(base,year){let dynamic={};try{dynamic=JSON.parse(localStorage.getItem(DYNAMIC_NUMBER_KEY)||'{}')||{};}catch(e){}const yearKey=String(year),yearSaved=dynamic[yearKey]||{},steps=year-currentAcademicYear_();const all=(Array.isArray(base)?base:[]).map(fallbackStudent_);const initial=year===2026?INITIAL_EXAM_NUMBERS:{};const highestRegistered=Math.max(0,...Object.keys(INITIAL_EXAM_NUMBERS).map(Number));const eligible=all.map(s=>{const saved=yearSaved[s.studentId];s.grade=saved?.grade||advanceGrade_(s.baseGrade,steps);return s;}).filter(s=>TARGET_GRADES.includes(s.grade)&&(year!==2026||initial[s.studentId]||yearSaved[s.studentId]||Number(s.studentId)>highestRegistered)).sort((a,b)=>Number(a.studentId)-Number(b.studentId));const max={'中１':1000,'中２':2000,'中３':3000,'小４':4000,'小５':5000,'小６':6000};Object.entries(initial).forEach(([id,n])=>{const item=eligible.find(s=>s.studentId===id);if(item&&numberFitsGrade_(n,item.grade))max[item.grade]=Math.max(max[item.grade],Number(n));});Object.values(yearSaved).forEach(x=>{if(x&&numberFitsGrade_(x.number,x.grade))max[x.grade]=Math.max(max[x.grade],Number(x.number));});eligible.forEach(s=>{const first=initial[s.studentId],saved=yearSaved[s.studentId];if(numberFitsGrade_(first,s.grade))s.examNumber=first;else if(saved&&numberFitsGrade_(saved.number,s.grade))s.examNumber=String(saved.number);else{s.examNumber=String(++max[s.grade]);yearSaved[s.studentId]={grade:s.grade,number:s.examNumber};}s.year=year;});dynamic[yearKey]=yearSaved;localStorage.setItem(DYNAMIC_NUMBER_KEY,JSON.stringify(dynamic));return eligible;}
+function fallbackStudents_(base,year){
+  let dynamic={};
+  try{dynamic=JSON.parse(localStorage.getItem(DYNAMIC_NUMBER_KEY)||'{}')||{};}catch(e){}
+  const yearKey=String(year),yearSaved=dynamic[yearKey]||{},steps=year-currentAcademicYear_();
+  const all=(Array.isArray(base)?base:[]).map(fallbackStudent_);
+  const initial=year===2026?INITIAL_EXAM_NUMBERS:{};
+  const highestRegistered=Math.max(0,...Object.keys(INITIAL_EXAM_NUMBERS).map(Number));
+  const eligible=all.map(s=>{const saved=yearSaved[s.studentId];s.grade=saved?.grade||advanceGrade_(s.baseGrade,steps);return s;}).filter(s=>TARGET_GRADES.includes(s.grade)&&(year!==2026||initial[s.studentId]||yearSaved[s.studentId]||Number(s.studentId)>highestRegistered)).sort((a,b)=>Number(a.studentId)-Number(b.studentId));
+  const max={'中１':1000,'中２':2000,'中３':3000,'小４':4000,'小５':5000,'小６':6000};
+  const used={'中１':new Set(),'中２':new Set(),'中３':new Set(),'小４':new Set(),'小５':new Set(),'小６':new Set()};
+
+  // Google Sheetと照合済みの既存番号を最優先で予約する。
+  eligible.forEach(s=>{const number=initial[s.studentId];if(numberFitsGrade_(number,s.grade)){s.examNumber=String(number);used[s.grade].add(Number(number));max[s.grade]=Math.max(max[s.grade],Number(number));}});
+  // 端末保存番号も最大値の計算に含め、新規番号を既存番号より後ろにする。
+  Object.values(yearSaved).forEach(x=>{if(x&&numberFitsGrade_(x.number,x.grade))max[x.grade]=Math.max(max[x.grade],Number(x.number));});
+  // Sheet既存番号と衝突した端末保存番号は、空いている最大番号の後ろへ自動修復する。
+  eligible.forEach(s=>{
+    if(!s.examNumber){
+      const saved=yearSaved[s.studentId],savedNumber=Number(saved?.number);
+      if(saved&&numberFitsGrade_(savedNumber,s.grade)&&!used[s.grade].has(savedNumber))s.examNumber=String(savedNumber);
+      else{do{max[s.grade]++;}while(used[s.grade].has(max[s.grade]));s.examNumber=String(max[s.grade]);}
+      used[s.grade].add(Number(s.examNumber));
+      yearSaved[s.studentId]={grade:s.grade,number:s.examNumber};
+    }
+    s.year=year;
+  });
+  dynamic[yearKey]=yearSaved;
+  localStorage.setItem(DYNAMIC_NUMBER_KEY,JSON.stringify(dynamic));
+  return eligible;
+}
 async function loadStudents(refresh=false){const year=selectedYear_();setStatus(`☆マスタから${year}年度の生徒情報と受験番号を更新しています…`);try{let data=await jsonp('getExamTicketStudents',{year,refresh:refresh?'1':'0',_:Date.now()});let fallback=false;if(!Array.isArray(data?.students)){await postJson({action:'refreshStudents'});const base=await jsonp('getStudents',{_:Date.now()});const fallbackList=fallbackStudents_(base,year);data={year,students:fallbackList,warnings:examNumberWarnings_(fallbackList)};fallback=true;}students=data.students;const valid=new Set(students.map(s=>s.studentId));for(const id of selected.keys())if(!valid.has(id))selected.delete(id);renderStudents();const warning=(data.warnings||[]).join(' / ');setStatus(`${year}年度：${students.length}名を読み込みました。新規番号は学年別の最大番号より後ろに割り当てます。${fallback?'（Google Sheet照合済み番号を使用）':''}${warning?'　注意：'+warning:''}`,warning?'error':'ok');}catch(e){setStatus(e.name==='AbortError'?'更新に時間がかかっています。もう一度「生徒情報を更新」を押してください。':e.message,'error');}}
 function printTickets(){if(!selected.size)return;const list=[...selected.values()].sort((a,b)=>Number(a.examNumber)-Number(b.examNumber));$('printArea').innerHTML=list.map(s=>ticketMarkup(s,true)).join('');window.print();}
 
