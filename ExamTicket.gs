@@ -4,8 +4,8 @@ const EXAM_MASTER_SHEET_='☆マスタ';
 const EXAM_NUMBER_SHEET_='全県模試受験番号';
 const EXAM_NUMBER_HEADERS_=['生徒コード','生徒氏名','学年','受験番号','校舎','割当日','備考'];
 
-function examGrade_(value){return String(value||'').normalize('NFKC').replace(/[\s　]+/g,'').replace('中1','中１').replace('中2','中２').replace('中3','中３');}
-function examGradeStart_(grade){return {'中１':1001,'中２':2001,'中３':3001}[grade]||0;}
+function examGrade_(value){return String(value||'').normalize('NFKC').replace(/[\s　]+/g,'').replace('小4','小４').replace('小5','小５').replace('小6','小６').replace('中1','中１').replace('中2','中２').replace('中3','中３');}
+function examGradeStart_(grade){return {'中１':1001,'中２':2001,'中３':3001,'小４':4001,'小５':5001,'小６':6001}[grade]||0;}
 function examCampus_(value){const s=String(value||'');return s.indexOf('神領')>=0?'神領':s.indexOf('大手')>=0?'大手':s;}
 function examNumberInGrade_(number,grade){const n=Number(number),start=examGradeStart_(grade);return start&&n>=start&&n<start+999;}
 
@@ -40,7 +40,7 @@ function getExamTicketStudents_(){
   try{
     const sh=ensureExamNumberSheet_(),last=Math.max(sh.getLastRow(),1);
     const saved=last>1?sh.getRange(2,1,last-1,EXAM_NUMBER_HEADERS_.length).getValues():[];
-    const rowById={},used={'中１':new Set(),'中２':new Set(),'中３':new Set()},max={'中１':1000,'中２':2000,'中３':3000};
+    const rowById={},used={'中１':new Set(),'中２':new Set(),'中３':new Set(),'小４':new Set(),'小５':new Set(),'小６':new Set()},max={'中１':1000,'中２':2000,'中３':3000,'小４':4000,'小５':5000,'小６':6000};
     saved.forEach((r,i)=>{
       const id=String(r[0]||'').trim(),grade=examGrade_(r[2]),number=Number(r[3]);
       if(id&&!rowById[id])rowById[id]={row:i+2,values:r};
