@@ -22,12 +22,14 @@
 
     <main class="layout">
       <section class="panel controlsPanel">
-        <div class="stepHeading"><span>1</span><div><h2>受験回を選択</h2><p>タイトルの「第〇回」に反映されます。</p></div></div>
-        <label class="fieldLabel" for="roundSelect">愛知全県模試</label>
-        <select id="roundSelect" class="input roundSelect">
-          <option value="1">第1回</option><option value="2">第2回</option><option value="3">第3回</option>
-          <option value="4">第4回</option><option value="5">第5回</option><option value="6">第6回</option>
-        </select>
+        <div class="stepHeading"><span>1</span><div><h2>年度と受験回を選択</h2><p>翌年度を選ぶと、進級後の学年で新しい番号を割り当てます。</p></div></div>
+        <div class="examSettingsGrid">
+          <div><label class="fieldLabel" for="yearSelect">年度</label><select id="yearSelect" class="input roundSelect"></select></div>
+          <div><label class="fieldLabel" for="roundSelect">愛知全県模試</label><select id="roundSelect" class="input roundSelect">
+            <option value="1">第1回</option><option value="2">第2回</option><option value="3">第3回</option>
+            <option value="4">第4回</option><option value="5">第5回</option><option value="6">第6回</option>
+          </select></div>
+        </div>
 
         <hr>
         <div class="stepHeading"><span>2</span><div><h2>印刷する生徒を選択</h2><p>B列が1の小4・小5・小6・中学生を表示します。</p></div></div>
@@ -60,6 +62,6 @@
     </main>
   </div>
   <div id="printArea" class="printArea" aria-hidden="true"></div>
-  <script src="exam_ticket.js?v=20260818-4"></script>
+  <script src="exam_ticket.js?v=20260818-5"></script>
 </body>
 </html>
