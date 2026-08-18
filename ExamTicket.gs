@@ -10,7 +10,8 @@ function examGradeStart_(grade){return {'中１':1001,'中２':2001,'中３':300
 function examCampus_(value){const s=String(value||'');return s.indexOf('神領')>=0?'神領':s.indexOf('大手')>=0?'大手':s;}
 function examNumberInGrade_(number,grade){const n=Number(number),start=examGradeStart_(grade);return start&&n>=start&&n<start+999;}
 function examAcademicYear_(){const now=new Date(),year=Number(Utilities.formatDate(now,'Asia/Tokyo','yyyy')),md=Utilities.formatDate(now,'Asia/Tokyo','MMdd');return md>='0401'?year:year-1;}
-function examTargetYear_(value){const current=examAcademicYear_(),year=Number(value);return year===current+1?year:current;}
+function examYearAvailable_(year){const today=Number(Utilities.formatDate(new Date(),'Asia/Tokyo','yyyyMMdd'));return today>=Number(year)*10000+301;}
+function examTargetYear_(value){const current=examAcademicYear_(),year=Number(value);if(!year||year===current)return current;if(year===current+1){if(examYearAvailable_(year))return year;throw new Error(year+'年度は'+year+'年3月1日から選択できます。それ以前は選択できません。');}return current;}
 function examAdvanceGrade_(grade,steps){const order=['小１','小２','小３','小４','小５','小６','中１','中２','中３','高１'];let index=order.indexOf(examGrade_(grade));if(index<0)return '';index+=Number(steps)||0;return index>=0&&index<order.length?order[index]:'';}
 
 function ensureExamNumberSheet_(){
