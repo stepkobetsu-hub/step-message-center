@@ -1,0 +1,69 @@
+// 愛知全県模試 受験票作成（固定受験番号）
+const EXAM_MASTER_SS_ID_='1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
+const EXAM_MASTER_SHEET_='☆マスタ';
+const EXAM_NUMBER_SHEET_='全県模試受験番号';
+const EXAM_NUMBER_HEADERS_=['生徒コード','生徒氏名','学年','受験番号','校舎','割当日','備考'];
+
+function examGrade_(value){return String(value||'').normalize('NFKC').replace(/[\s　]+/g,'').replace('中1','中１').replace('中2','中２').replace('中3','中３');}
+function examGradeStart_(grade){return {'中１':1001,'中２':2001,'中３':3001}[grade]||0;}
+function examCampus_(value){const s=String(value||'');return s.indexOf('神領')>=0?'神領':s.indexOf('大手')>=0?'大手':s;}
+function examNumberInGrade_(number,grade){const n=Number(number),start=examGradeStart_(grade);return start&&n>=start&&n<start+999;}
+
+function ensureExamNumberSheet_(){
+  const ss=SpreadsheetApp.openById(EXAM_MASTER_SS_ID_);
+  let sh=ss.getSheetByName(EXAM_NUMBER_SHEET_);
+  if(!sh){
+    sh=ss.insertSheet(EXAM_NUMBER_SHEET_);
+    sh.getRange(1,1,1,EXAM_NUMBER_HEADERS_.length).setValues([EXAM_NUMBER_HEADERS_]);
+    sh.setFrozenRows(1);
+  }
+  const current=sh.getRange(1,1,1,EXAM_NUMBER_HEADERS_.length).getDisplayValues()[0];
+  if(EXAM_NUMBER_HEADERS_.some((h,i)=>current[i]!==h))throw new Error('「'+EXAM_NUMBER_SHEET_+'」の見出しが変更されています。見出しを元に戻してください。');
+  return sh;
+}
+
+function activeExamStudents_(){
+  const sh=SpreadsheetApp.openById(EXAM_MASTER_SS_ID_).getSheetByName(EXAM_MASTER_SHEET_);
+  if(!sh)throw new Error('☆マスタが見つかりません。');
+  const values=sh.getDataRange().getValues(),out=[];
+  for(let i=1;i<values.length;i++){
+    const r=values[i],grade=examGrade_(r[10]);
+    if(String(r[1])!=='1'||!examGradeStart_(grade)||!r[0]||!r[4])continue;
+    out.push({studentId:String(r[0]),name:String(r[4]),kana:String(r[5]||''),grade:grade,campus:examCampus_(r[7])});
+  }
+  return out.sort((a,b)=>examGradeStart_(a.grade)-examGradeStart_(b.grade)||Number(a.studentId)-Number(b.studentId));
+}
+
+function getExamTicketStudents_(){
+  const lock=LockService.getScriptLock();
+  lock.waitLock(30000);
+  try{
+    const sh=ensureExamNumberSheet_(),last=Math.max(sh.getLastRow(),1);
+    const saved=last>1?sh.getRange(2,1,last-1,EXAM_NUMBER_HEADERS_.length).getValues():[];
+    const rowById={},used={'中１':new Set(),'中２':new Set(),'中３':new Set()},max={'中１':1000,'中２':2000,'中３':3000};
+    saved.forEach((r,i)=>{
+      const id=String(r[0]||'').trim(),grade=examGrade_(r[2]),number=Number(r[3]);
+      if(id&&!rowById[id])rowById[id]={row:i+2,values:r};
+      if(examNumberInGrade_(number,grade)){used[grade].add(number);max[grade]=Math.max(max[grade],number);}
+    });
+    const students=activeExamStudents_(),updates=[],appends=[],warnings=[],activeNumbers={};
+    students.forEach(s=>{
+      const found=rowById[s.studentId];let number=found?Number(found.values[3]):0;const oldGrade=found?examGrade_(found.values[2]):'';
+      if(!found||oldGrade!==s.grade||!examNumberInGrade_(number,s.grade)){
+        do{number=++max[s.grade];}while(used[s.grade].has(number));
+        used[s.grade].add(number);
+        const note=found&&oldGrade&&oldGrade!==s.grade?`学年変更 ${oldGrade} ${found.values[3]}→${s.grade} ${number}`:'自動割当';
+        const row=[s.studentId,s.name,s.grade,number,s.campus,new Date(),note];
+        found?updates.push({row:found.row,values:row}):appends.push(row);
+      }else{
+        const row=[s.studentId,s.name,s.grade,number,s.campus,found.values[5]||new Date(),found.values[6]||''];
+        if(String(found.values[1])!==s.name||examCampus_(found.values[4])!==s.campus)updates.push({row:found.row,values:row});
+      }
+      if(activeNumbers[number])warnings.push(`受験番号${number}が重複しています（${activeNumbers[number]}・${s.name}）`);
+      activeNumbers[number]=s.name;s.examNumber=String(number).padStart(4,'0');
+    });
+    updates.forEach(u=>sh.getRange(u.row,1,1,EXAM_NUMBER_HEADERS_.length).setValues([u.values]));
+    if(appends.length)sh.getRange(sh.getLastRow()+1,1,appends.length,EXAM_NUMBER_HEADERS_.length).setValues(appends);
+    return {ok:true,students:students,warnings:[...new Set(warnings)],updatedAt:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy/MM/dd HH:mm:ss')};
+  }finally{lock.releaseLock();}
+}
