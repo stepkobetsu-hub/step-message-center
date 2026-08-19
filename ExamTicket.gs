@@ -5,6 +5,8 @@ const EXAM_NUMBER_SHEET_='全県模試受験番号';
 const EXAM_NUMBER_HEADERS_=['生徒コード','生徒氏名','学年','受験番号','校舎','割当日','備考','年度'];
 const EXAM_SCHOOL_CODE_SHEET_='中学校コード';
 const EXAM_SCHOOL_CODE_HEADERS_=['学校名','中学校コード','備考'];
+const EXAM_LISTENING_SHEET_='全県模試リスニング';
+const EXAM_LISTENING_HEADERS_=['年度','回','学年','リスニングURL','ユーザー名','パスワード','更新日','備考'];
 const EXAM_TARGET_GRADES_=['小４','小５','小６','中１','中２','中３'];
 
 function examGrade_(value){return String(value||'').normalize('NFKC').replace(/[\s　]+/g,'').replace('小1','小１').replace('小2','小２').replace('小3','小３').replace('小4','小４').replace('小5','小５').replace('小6','小６').replace('中1','中１').replace('中2','中２').replace('中3','中３').replace('高1','高１');}
@@ -15,6 +17,7 @@ function examAcademicYear_(){const now=new Date(),year=Number(Utilities.formatDa
 function examYearAvailable_(year){const today=Number(Utilities.formatDate(new Date(),'Asia/Tokyo','yyyyMMdd'));return today>=Number(year)*10000+301;}
 function examTargetYear_(value){const current=examAcademicYear_(),year=Number(value);if(!year||year===current)return current;if(year===current+1){if(examYearAvailable_(year))return year;throw new Error(year+'年度は'+year+'年3月1日から選択できます。それ以前は選択できません。');}return current;}
 function examAdvanceGrade_(grade,steps){const order=['小１','小２','小３','小４','小５','小６','中１','中２','中３','高１'];let index=order.indexOf(examGrade_(grade));if(index<0)return '';index+=Number(steps)||0;return index>=0&&index<order.length?order[index]:'';}
+function examRound_(value){const n=Number(value);if(!Number.isInteger(n)||n<1||n>6)throw new Error('受験回は第1回～第6回で指定してください。');return n;}
 function examSchoolName_(value){return String(value||'').normalize('NFKC').replace(/[\s　]+/g,'').replace(/中学校$/,'中');}
 
 function ensureExamSchoolCodeSheet_(){
@@ -43,6 +46,40 @@ function saveExamSchoolCode_(d){
     else sh.appendRow([school,code,'画面から登録 '+Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy/MM/dd HH:mm')]);
     sh.getRange(row||sh.getLastRow(),2).setNumberFormat('@');
     return {ok:true,schoolName:school,schoolCode:code,sheetUrl:'https://docs.google.com/spreadsheets/d/'+EXAM_MASTER_SS_ID_+'/edit?gid=2026081901#gid=2026081901'};
+  }finally{lock.releaseLock();}
+}
+
+function ensureExamListeningSheet_(){
+  const ss=SpreadsheetApp.openById(EXAM_MASTER_SS_ID_);let sh=ss.getSheetByName(EXAM_LISTENING_SHEET_);
+  if(!sh){sh=ss.insertSheet(EXAM_LISTENING_SHEET_);sh.getRange(1,1,1,EXAM_LISTENING_HEADERS_.length).setValues([EXAM_LISTENING_HEADERS_]);sh.setFrozenRows(1);}
+  const current=sh.getRange(1,1,1,EXAM_LISTENING_HEADERS_.length).getDisplayValues()[0];
+  if(EXAM_LISTENING_HEADERS_.some((h,i)=>current[i]!==h))throw new Error('「'+EXAM_LISTENING_SHEET_+'」の見出しが変更されています。見出しを元に戻してください。');
+  return sh;
+}
+function getExamListeningSettings_(requestedYear,requestedRound){
+  const targetYear=examTargetYear_(requestedYear),round=examRound_(requestedRound),sh=ensureExamListeningSheet_(),last=sh.getLastRow(),settings={};
+  const rows=last>1?sh.getRange(2,1,last-1,EXAM_LISTENING_HEADERS_.length).getDisplayValues():[];
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i],year=Number(r[0]),rRound=Number(r[1]),grade=examGrade_(r[2]),url=String(r[3]||'').trim(),username=String(r[4]||'').trim(),password=String(r[5]||'').trim();
+    if(year!==targetYear||rRound!==round||['中１','中２','中３'].indexOf(grade)<0||!url||!username||!password)continue;
+    settings[grade]={year:targetYear,round:round,grade:grade,url:url,username:username,password:password};
+  }
+  const missing=['中１','中２','中３'].filter(g=>!settings[g]);
+  return {ok:true,year:targetYear,round:round,settings:settings,missingGrades:missing,sheetUrl:'https://docs.google.com/spreadsheets/d/'+EXAM_MASTER_SS_ID_+'/edit?gid=2026081902#gid=2026081902'};
+}
+function saveExamListeningSettings_(d){
+  const year=Number(d.year),round=examRound_(d.round),grade=examGrade_(d.grade),url=String(d.url||'').trim(),username=String(d.username||'').trim(),password=String(d.password||'').trim();
+  if(!Number.isInteger(year)||year<2026||year>2100)throw new Error('年度を正しく指定してください。');
+  if(['中１','中２','中３'].indexOf(grade)<0)throw new Error('学年は中１・中２・中３から選んでください。');
+  if(!/^https:\/\//i.test(url))throw new Error('リスニングURLはhttps://から入力してください。');
+  if(!username||!password)throw new Error('ユーザー名とパスワードを入力してください。');
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const sh=ensureExamListeningSheet_(),last=sh.getLastRow(),rows=last>1?sh.getRange(2,1,last-1,3).getDisplayValues():[];let row=0;
+    for(let i=0;i<rows.length;i++){if(Number(rows[i][0])===year&&Number(rows[i][1])===round&&examGrade_(rows[i][2])===grade){row=i+2;break;}}
+    const values=[year,round,grade,url,username,password,new Date(),year+'年度 第'+round+'回'];
+    if(row)sh.getRange(row,1,1,values.length).setValues([values]);else sh.appendRow(values);
+    return {ok:true,item:{year:year,round:round,grade:grade,url:url,username:username,password:password},sheetUrl:'https://docs.google.com/spreadsheets/d/'+EXAM_MASTER_SS_ID_+'/edit?gid=2026081902#gid=2026081902'};
   }finally{lock.releaseLock();}
 }
 
