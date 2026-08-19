@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#14532d">
   <title>愛知全県模試 受験票作成</title>
-  <link rel="stylesheet" href="exam_ticket.css?v=20260819-8">
+  <link rel="stylesheet" href="exam_ticket.css?v=20260819-9">
 </head>
 <body>
   <div class="appShell">
@@ -18,6 +18,7 @@
       <div class="headerLinks">
         <a class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081801#gid=2026081801" target="_blank" rel="noopener noreferrer">受験番号を訂正する</a>
         <a id="schoolCodeSheetLink" class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081901#gid=2026081901" target="_blank" rel="noopener noreferrer">中学校コードを訂正する</a>
+        <a id="listeningSheetLink" class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081902#gid=2026081902" target="_blank" rel="noopener noreferrer">リスニング情報を訂正する</a>
       </div>
     </header>
 
@@ -27,6 +28,13 @@
       <p>☆マスタP列の学校名に対応する3桁の中学校コードを入力してください。登録後、既存生を含む該当校の全生徒に反映されます。</p>
       <div id="schoolCodeRows"></div>
     </section>
+
+    <dialog id="listeningDialog" class="listeningDialog">
+      <div class="listeningDialogHead"><div><p class="eyebrow">英語聞き取り検査</p><h2 id="listeningDialogTitle">リスニング情報を登録</h2></div><button id="listeningDialogClose" type="button" class="dialogClose" aria-label="閉じる">×</button></div>
+      <p class="listeningDialogNote">この年度・受験回で未登録の学年があります。URL、ユーザー名、パスワードを登録してください。</p>
+      <div id="listeningDialogRows"></div>
+      <p class="listeningSecurityNote">QRコードには再生URLのみを登録します。ユーザー名とパスワードは受験票にも印刷されます。</p>
+    </dialog>
 
     <main class="layout">
       <section class="panel controlsPanel">
@@ -73,6 +81,7 @@
     </main>
   </div>
   <div id="printArea" class="printArea" aria-hidden="true"></div>
-  <script src="exam_ticket.js?v=20260819-11"></script>
+  <script src="qrcode.js?v=1"></script>
+  <script src="exam_ticket.js?v=20260819-12"></script>
 </body>
 </html>
