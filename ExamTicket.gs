@@ -103,11 +103,21 @@ function activeExamStudents_(targetYear,schoolCodeMap){
   return out.sort((a,b)=>examGradeStart_(a.grade)-examGradeStart_(b.grade)||Number(a.studentId)-Number(b.studentId));
 }
 
-function getExamTicketStudents_(requestedYear){
+function getExamTicketStudents_(requestedYear,forceRefresh){
+  var targetYear=examTargetYear_(requestedYear);
+  var cache=CacheService.getScriptCache();
+  var cacheKey='exam_ticket_students_v58_'+targetYear;
+  if(!forceRefresh){
+    var cached=cache.get(cacheKey);
+    if(cached){try{return JSON.parse(cached);}catch(ignore){}}
+  }
   var lock=LockService.getScriptLock();
   lock.waitLock(30000);
   try{
-    var targetYear=examTargetYear_(requestedYear);
+    if(!forceRefresh){
+      var lockedCache=cache.get(cacheKey);
+      if(lockedCache){try{return JSON.parse(lockedCache);}catch(ignoreLocked){}}
+    }
     var sh=ensureExamNumberSheet_();
     var last=Math.max(sh.getLastRow(),1);
     var saved=last>1?sh.getRange(2,1,last-1,EXAM_NUMBER_HEADERS_.length).getValues():[];
@@ -163,7 +173,9 @@ function getExamTicketStudents_(requestedYear){
     }
     for(i=0;i<updates.length;i++)sh.getRange(updates[i].row,1,1,EXAM_NUMBER_HEADERS_.length).setValues([updates[i].values]);
     if(appends.length)sh.getRange(sh.getLastRow()+1,1,appends.length,EXAM_NUMBER_HEADERS_.length).setValues(appends);
-    return {ok:true,year:targetYear,students:students,warnings:warnings,missingSchoolCodes:Object.keys(missingSchoolMap),schoolCodeSheetUrl:'https://docs.google.com/spreadsheets/d/'+EXAM_MASTER_SS_ID_+'/edit?gid=2026081901#gid=2026081901',updatedAt:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy/MM/dd HH:mm:ss')};
+    var result={ok:true,year:targetYear,students:students,warnings:warnings,missingSchoolCodes:Object.keys(missingSchoolMap),schoolCodeSheetUrl:'https://docs.google.com/spreadsheets/d/'+EXAM_MASTER_SS_ID_+'/edit?gid=2026081901#gid=2026081901',updatedAt:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy/MM/dd HH:mm:ss')};
+    cache.put(cacheKey,JSON.stringify(result),300);
+    return result;
   }finally{
     lock.releaseLock();
   }
