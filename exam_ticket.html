@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#14532d">
   <title>愛知全県模試 受験票作成</title>
-  <link rel="stylesheet" href="exam_ticket.css?v=20260819-4">
+  <link rel="stylesheet" href="exam_ticket.css?v=20260819-5">
 </head>
 <body>
   <div class="appShell">
@@ -15,10 +15,18 @@
         <h1>愛知全県模試 受験票作成</h1>
         <p class="subtitle">受験回と生徒を選んで、A4受験票をまとめて印刷します。</p>
       </div>
-      <a class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081801#gid=2026081801" target="_blank" rel="noopener noreferrer">受験番号を訂正する</a>
+      <div class="headerLinks">
+        <a class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081801#gid=2026081801" target="_blank" rel="noopener noreferrer">受験番号を訂正する</a>
+        <a id="schoolCodeSheetLink" class="sheetLink" href="https://docs.google.com/spreadsheets/d/1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk/edit?gid=2026081901#gid=2026081901" target="_blank" rel="noopener noreferrer">中学校コードを訂正する</a>
+      </div>
     </header>
 
     <div id="status" class="status" role="status">生徒情報を読み込んでいます…</div>
+    <section id="schoolCodePanel" class="schoolCodePanel" hidden>
+      <h2>中学校コードの登録が必要です</h2>
+      <p>☆マスタP列の学校名に対応する3桁の中学校コードを入力してください。登録後、既存生を含む該当校の全生徒に反映されます。</p>
+      <div id="schoolCodeRows"></div>
+    </section>
 
     <main class="layout">
       <section class="panel controlsPanel">
@@ -65,6 +73,6 @@
     </main>
   </div>
   <div id="printArea" class="printArea" aria-hidden="true"></div>
-  <script src="exam_ticket.js?v=20260819-8"></script>
+  <script src="exam_ticket.js?v=20260819-9"></script>
 </body>
 </html>
