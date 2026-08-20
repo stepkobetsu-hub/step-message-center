@@ -297,9 +297,28 @@ function normalizeAbsenceSnapshot_(value){
   if(Array.isArray(value))return {items:value,updatedAt:''};
   return {items:Array.isArray(value?.items)?value.items:[],updatedAt:value?.updatedAt||''};
 }
+function absenceReceivedAtMs_(item){
+  const raw=String(item?.receivedLabel||'').replace(/着$/,'').trim();
+  const matched=raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(!matched)return 0;
+  const [,year,month,day,hour,minute,second='0']=matched;
+  return Date.UTC(Number(year),Number(month)-1,Number(day),Number(hour)-9,Number(minute),Number(second));
+}
+function sortAbsencesForDisplay_(items){
+  return [...items].sort((a,b)=>{
+    const aToday=Boolean(a?.isToday), bToday=Boolean(b?.isToday);
+    if(aToday!==bToday)return aToday?-1:1;
+    if(aToday&&bToday){
+      const byTimestamp=absenceReceivedAtMs_(b)-absenceReceivedAtMs_(a);
+      if(byTimestamp)return byTimestamp;
+      return Number(b?.row||0)-Number(a?.row||0);
+    }
+    return 0;
+  });
+}
 function renderAbsences(snapshot,options={}){
   const normalized=normalizeAbsenceSnapshot_(snapshot);
-  const nearestDateFirst=[...normalized.items];
+  const nearestDateFirst=sortAbsencesForDisplay_(normalized.items);
   $('absenceList').innerHTML=nearestDateFirst.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b>${a.receivedLabel?` <span class="receivedTime">${a.receivedLabel}</span>`:''}<div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>';
   const status=$('absenceAutoStatus');
   if(status){
