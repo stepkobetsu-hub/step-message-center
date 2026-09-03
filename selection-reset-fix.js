@@ -1,6 +1,12 @@
 // 2026-09-04: 送信対象の選択が0人に戻ったとき、学年フィルターを「全生徒」へ復帰させる。
 // 「決定」で候補一覧を隠したあと、選択した生徒を全員解除すると検索結果が0件のままになる問題への対策。
+// 2026-09-04: 生徒検索では「髙」と「高」を同一文字として扱う。
 (function(){
+  const baseNormalizeStudentSearch_ = normalizeStudentSearch_;
+  normalizeStudentSearch_ = function(value){
+    return baseNormalizeStudentSearch_(value).replace(/髙/g,'高');
+  };
+
   function restoreAllStudentsFilterIfEmpty(){
     if(selected.size!==0)return false;
     activeGrades=new Set(['全生徒']);
