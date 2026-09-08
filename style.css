@@ -151,7 +151,8 @@
 .deliveryItem small{grid-column:1/-1;color:#567}.deliveryItem div{grid-column:1/-1}
 .deliveryOk{border-color:#77c795;background:#eefbf3}.deliveryPending{border-color:#e3bd58;background:#fff9df}.deliveryError{border-color:#e29aa5;background:#fff2f3}
 .deliveryUnknown{border:1px solid #e3bd58;background:#fff9df;color:#634d00}
-.deliveryLogModal{max-width:700px}.deliveryLogRow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;width:100%;padding:11px 12px;margin:8px 0;border:1px solid #b8d1ee;border-radius:10px;background:#f8fbff;color:#06234a;text-align:left;cursor:pointer}.deliveryLogRow small{grid-column:1/-1;color:#075aa8;font-weight:700}
+.deliveryLogModal{display:flex;flex-direction:column;max-width:700px;max-height:calc(100dvh - 40px);overflow:hidden;text-align:left}.deliveryLogHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto}.deliveryLogHead h2{margin:0}.deliveryLogClose{display:grid;place-items:center;flex:0 0 auto;width:40px;height:40px;border:1px solid #9ec4ec;border-radius:50%;background:#f3f8ff;color:#075aa8;font-size:28px;line-height:1;cursor:pointer}.deliveryLogClose:focus-visible{outline:3px solid #f9c74f;outline-offset:2px}#deliveryLogList{min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:12px -6px 16px 0;padding-right:6px}.deliveryLogBottomClose{flex:0 0 auto;align-self:center}.deliveryLogRow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;width:100%;padding:11px 12px;margin:8px 0;border:1px solid #b8d1ee;border-radius:10px;background:#f8fbff;color:#06234a;text-align:left;cursor:pointer}.deliveryLogRow small{grid-column:1/-1;color:#075aa8;font-weight:700}
+@media(max-width:600px){.modalOverlay{padding:10px}.deliveryLogModal{max-height:calc(100dvh - 20px);padding:18px}.deliveryLogHead h2{font-size:20px}}
 
 
 /* Ver.31.4.5 案内日時の切れ防止 */
