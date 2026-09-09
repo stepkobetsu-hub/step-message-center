@@ -145,6 +145,7 @@
 
 /* 送信エラー後の実送信調査 */
 .deliveryLogBtn{background:#e7f1ff!important;color:#075aa8!important;border-color:#8bb9ea!important;white-space:nowrap}
+.checkinLogLink{display:inline-flex;align-items:center;padding:5px 10px;border:1px solid #b8d1ee;border-radius:999px;background:#f7fbff;font-size:11px;line-height:1.2;white-space:nowrap}
 .modalActions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}
 .deliveryItem,.deliveryUnknown,.deliveryLogDetail{border-radius:10px;padding:10px 12px;margin:8px 0;text-align:left}
 .deliveryItem{display:grid;grid-template-columns:1fr auto;gap:4px 10px;border:1px solid #b8d1ee;background:#f8fbff}
