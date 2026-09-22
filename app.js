@@ -129,16 +129,16 @@ async function load(){
     }catch(e){}
   }
 
-  try{
-    templates=await api.getTemplates();
+  // Ver.31.6：テンプレート・生徒・欠席を同時に確認する。
+  // どれか1つのApps Script通信が遅くても、他の表示開始を待たせない。
+  api.getTemplates().then(list=>{
+    templates=list||[];
     localStorage.setItem('step_templates_v313', JSON.stringify(templates));
     $('templateSelect').innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
     applyTemplate();
-  }catch(e){
-    if(!templates.length){
-      alert('テンプレートの読み込みに失敗しました：'+e.message);
-    }
-  }
+  }).catch(e=>{
+    if(!templates.length) alert('テンプレートの読み込みに失敗しました：'+e.message);
+  });
 
   api.getStudents().then(list=>{
     students=list||[];
@@ -146,7 +146,7 @@ async function load(){
     renderStudents();
   }).catch(e=>{ if(!students.length) alert(e.message); });
 
-  // 初回表示は軽量な保存スナップショットを確認する。元データ再読込は手動更新時だけ行う。
+  // 端末保存の欠席一覧は即表示し、サーバーの軽量スナップショットを並行確認する。
   loadAbsences().catch(()=>{});
 }
 function syncDate(){ $('dateDisplay').value=fmtDate($('dateInput').value) }
@@ -370,4 +370,30 @@ async function loadAbsences(options={}){
   }
 }
 window.archiveHistory=archiveHistory;window.restoreHistory=restoreHistory;window.deleteHistoryPermanent=deleteHistoryPermanent;
-document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');resetHistoryFilters();loadHistory()}; $('reloadHistory').onclick=()=>{showNormalHistoryControls();loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{resetHistoryFilters();loadHistory()}; if($('refreshHistoryBtn')) $('refreshHistoryBtn').onclick=()=>loadHistory(); if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{showNormalHistoryControls();loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{refreshAbsenceBtn.disabled=true; refreshAbsenceBtn.textContent='更新中…'; try{const r=await loadAbsences({refreshSource:true,skipLocal:true}); alert('欠席連絡を更新しました：'+r.items.length+'件');}catch(e){alert('欠席連絡の更新エラー：'+e.message)} finally{refreshAbsenceBtn.disabled=false; refreshAbsenceBtn.textContent='欠席連絡を手動更新';}}; setInterval(()=>{loadAbsences({skipLocal:true}).catch(()=>{})},300000);});
+document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');resetHistoryFilters();loadHistory()}; $('reloadHistory').onclick=()=>{showNormalHistoryControls();loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{resetHistoryFilters();loadHistory()}; if($('refreshHistoryBtn')) $('refreshHistoryBtn').onclick=()=>loadHistory(); if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{showNormalHistoryControls();loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{
+    if(absenceRefreshPromise)return;
+    refreshAbsenceBtn.disabled=true;
+    refreshAbsenceBtn.textContent='確認中…';
+    try{
+      // まず軽量スナップショットを取得して、画面を素早く最新状態にする。
+      await loadAbsences({skipLocal:true});
+      refreshAbsenceBtn.disabled=false;
+      refreshAbsenceBtn.textContent='欠席連絡を手動更新';
+      const status=$('absenceAutoStatus');
+      if(status)status.textContent='表示更新済み（元データも確認中）…';
+
+      // 時間のかかる元シート全件確認は裏側で続け、完了時に表示だけ差し替える。
+      requestAbsenceData_(true).then(result=>{
+        const snapshot=normalizeAbsenceSnapshot_(result);
+        localStorage.setItem('step_absences_v314',JSON.stringify(snapshot));
+        renderAbsences(snapshot,{confirmed:true});
+      }).catch(e=>{
+        if(status)status.textContent='表示更新済み（元データ確認は失敗）';
+        console.warn('欠席連絡の元データ確認に失敗しました',e);
+      });
+    }catch(e){
+      alert('欠席連絡の更新エラー：'+e.message);
+      refreshAbsenceBtn.disabled=false;
+      refreshAbsenceBtn.textContent='欠席連絡を手動更新';
+    }
+  }; setInterval(()=>{loadAbsences({skipLocal:true}).catch(()=>{})},300000);});
