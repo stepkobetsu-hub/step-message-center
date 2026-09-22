@@ -146,7 +146,8 @@ async function load(){
     renderStudents();
   }).catch(e=>{ if(!students.length) alert(e.message); });
 
-  loadAbsences({refreshSource:true}).catch(()=>{});
+  // 初回表示は軽量な保存スナップショットを確認する。元データ再読込は手動更新時だけ行う。
+  loadAbsences().catch(()=>{});
 }
 function syncDate(){ $('dateDisplay').value=fmtDate($('dateInput').value) }
 function openNativeDate(){ $('dateInput').showPicker?.(); $('dateInput').click() }
