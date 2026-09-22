@@ -370,30 +370,30 @@ async function loadAbsences(options={}){
   }
 }
 window.archiveHistory=archiveHistory;window.restoreHistory=restoreHistory;window.deleteHistoryPermanent=deleteHistoryPermanent;
-document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');resetHistoryFilters();loadHistory()}; $('reloadHistory').onclick=()=>{showNormalHistoryControls();loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{resetHistoryFilters();loadHistory()}; if($('refreshHistoryBtn')) $('refreshHistoryBtn').onclick=()=>loadHistory(); if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{showNormalHistoryControls();loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{
+document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');resetHistoryFilters();loadHistory()}; $('reloadHistory').onclick=()=>{showNormalHistoryControls();loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{resetHistoryFilters();loadHistory()}; if($('refreshHistoryBtn')) $('refreshHistoryBtn').onclick=()=>loadHistory(); if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{showNormalHistoryControls();loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=()=>{
     if(absenceRefreshPromise)return;
-    refreshAbsenceBtn.disabled=true;
-    refreshAbsenceBtn.textContent='確認中…';
-    try{
-      // まず軽量スナップショットを取得して、画面を素早く最新状態にする。
-      await loadAbsences({skipLocal:true});
-      refreshAbsenceBtn.disabled=false;
-      refreshAbsenceBtn.textContent='欠席連絡を手動更新';
-      const status=$('absenceAutoStatus');
-      if(status)status.textContent='表示更新済み（元データも確認中）…';
+    const status=$('absenceAutoStatus');
 
-      // 時間のかかる元シート全件確認は裏側で続け、完了時に表示だけ差し替える。
-      requestAbsenceData_(true).then(result=>{
-        const snapshot=normalizeAbsenceSnapshot_(result);
-        localStorage.setItem('step_absences_v314',JSON.stringify(snapshot));
-        renderAbsences(snapshot,{confirmed:true});
-      }).catch(e=>{
-        if(status)status.textContent='表示更新済み（元データ確認は失敗）';
-        console.warn('欠席連絡の元データ確認に失敗しました',e);
-      });
-    }catch(e){
-      alert('欠席連絡の更新エラー：'+e.message);
+    // 端末に保存した一覧をその場で再表示し、ボタン操作は待たせない。
+    const cached=localStorage.getItem('step_absences_v314');
+    if(cached){
+      try{renderAbsences(JSON.parse(cached),{local:true,confirmed:false});}catch(e){}
+    }
+    if(status)status.textContent='現在の表示を更新しました（元データ確認中）…';
+    refreshAbsenceBtn.disabled=true;
+    refreshAbsenceBtn.textContent='確認を開始しました';
+    setTimeout(()=>{
       refreshAbsenceBtn.disabled=false;
       refreshAbsenceBtn.textContent='欠席連絡を手動更新';
-    }
+    },700);
+
+    // 時間のかかる元シート全件確認は完全に裏側で行い、完了時に表示を差し替える。
+    requestAbsenceData_(true).then(result=>{
+      const snapshot=normalizeAbsenceSnapshot_(result);
+      localStorage.setItem('step_absences_v314',JSON.stringify(snapshot));
+      renderAbsences(snapshot,{confirmed:true});
+    }).catch(e=>{
+      if(status)status.textContent='保存データを表示中（元データ確認は失敗）';
+      console.warn('欠席連絡の元データ確認に失敗しました',e);
+    });
   }; setInterval(()=>{loadAbsences({skipLocal:true}).catch(()=>{})},300000);});
