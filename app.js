@@ -1,5 +1,6 @@
 const W = ['日','月','火','水','木','金','土'];
 let students=[], templates=[], selected=new Map(), currentTemplate=null, files=[], activeGrades=new Set(['全生徒']), sortMode='asc', historyMode='normal', historyLoadSeq=0;
+let absenceReadPromise=null, absenceRefreshPromise=null;
 const SEND_LOG_STORAGE_KEY='step_send_requests_v1';
 const $=id=>document.getElementById(id);
 function fmtDate(d){const x=new Date(d+'T00:00:00');return `${d.replaceAll('-','/')}（${W[x.getDay()]}）`}
@@ -287,15 +288,29 @@ async function archiveHistory(id){if(!confirm('この履歴を画面から非表
 async function restoreHistory(id){await api.restoreHistory(id); loadHistory()}
 async function deleteHistoryPermanent(id){if(!confirm('この履歴を完全削除します。元に戻せません。よろしいですか？'))return; await api.deleteHistoryPermanent(id); loadHistory()}
 function absenceUpdatedLabel_(snapshot){
-  const raw=snapshot?.updatedAt||snapshot?.items?.find(x=>x?.cacheUpdatedAt)?.cacheUpdatedAt||'';
+  const raw=snapshot?.updatedAt||'';
   if(!raw)return '';
-  const d=new Date(raw);
+  const normalized=String(raw).replace(' ','T');
+  const d=new Date(normalized);
   if(Number.isNaN(d.getTime()))return String(raw);
   return d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
 function normalizeAbsenceSnapshot_(value){
   if(Array.isArray(value))return {items:value,updatedAt:''};
-  return {items:Array.isArray(value?.items)?value.items:[],updatedAt:value?.updatedAt||''};
+  if(value && Array.isArray(value.items))return {items:value.items,updatedAt:value.updatedAt||''};
+  throw new Error('欠席連絡データの形式が正しくありません。');
+}
+async function requestAbsenceData_(refreshSource=false){
+  if(refreshSource){
+    if(absenceRefreshPromise)return absenceRefreshPromise;
+    if(absenceReadPromise){try{await absenceReadPromise}catch(e){}}
+    absenceRefreshPromise=api.refreshAbsences().finally(()=>{absenceRefreshPromise=null});
+    return absenceRefreshPromise;
+  }
+  if(absenceRefreshPromise)return absenceRefreshPromise;
+  if(absenceReadPromise)return absenceReadPromise;
+  absenceReadPromise=api.getAbsenceSnapshot().finally(()=>{absenceReadPromise=null});
+  return absenceReadPromise;
 }
 function absenceReceivedAtMs_(item){
   const raw=String(item?.receivedLabel||'').replace(/着$/,'').trim();
@@ -319,29 +334,39 @@ function sortAbsencesForDisplay_(items){
 function renderAbsences(snapshot,options={}){
   const normalized=normalizeAbsenceSnapshot_(snapshot);
   const nearestDateFirst=sortAbsencesForDisplay_(normalized.items);
-  $('absenceList').innerHTML=nearestDateFirst.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b>${a.receivedLabel?` <span class="receivedTime">${a.receivedLabel}</span>`:''}<div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||'<div class="muted">本日以降の欠席遅刻連絡はありません。</div>';
+  const emptyText=options.confirmed?'本日以降の欠席遅刻連絡はありません。':'最新データを確認しています…';
+  $('absenceList').innerHTML=nearestDateFirst.map(a=>`<div class="absenceItem ${a.isToday?'today':''}"><b>${a.dateLabel}</b>${a.receivedLabel?` <span class="receivedTime">${a.receivedLabel}</span>`:''}<div>${a.school}　${a.name}</div><div>${a.kind}　${a.reason||''}</div><div class="muted">${a.other||''}</div></div>`).join('')||`<div class="muted">${emptyText}</div>`;
   const status=$('absenceAutoStatus');
   if(status){
     const updated=absenceUpdatedLabel_(normalized);
-    status.textContent=options.local?'保存データを表示中…':(updated?`データ更新：${updated}`:'最新データを確認しました');
+    status.textContent=options.local?'保存データを表示中（最新確認中）…':(updated?`データ更新：${updated}`:'最新データを確認しました');
   }
 }
 async function loadAbsences(options={}){
-  const cached=localStorage.getItem('step_absences_v313');
-  if(cached){
-    try{renderAbsences(JSON.parse(cached)||[],{local:true})}catch(e){}
+  let hasLocal=false;
+  if(!options.skipLocal){
+    const cached=localStorage.getItem('step_absences_v314');
+    if(cached){
+      try{
+        const local=normalizeAbsenceSnapshot_(JSON.parse(cached));
+        renderAbsences(local,{local:true,confirmed:false});
+        hasLocal=true;
+      }catch(e){}
+    }
   }
+  if(!hasLocal && $('absenceAutoStatus'))$('absenceAutoStatus').textContent='最新データを確認中…';
+  if(!hasLocal && $('absenceList'))$('absenceList').innerHTML='<div class="muted">最新データを確認しています…</div>';
   try{
-    const result=options.refreshSource?await api.refreshAbsences():await api.getAbsenceSnapshot();
+    const result=await requestAbsenceData_(Boolean(options.refreshSource));
     const snapshot=normalizeAbsenceSnapshot_(result);
-    localStorage.setItem('step_absences_v313',JSON.stringify(snapshot));
-    renderAbsences(snapshot);
+    localStorage.setItem('step_absences_v314',JSON.stringify(snapshot));
+    renderAbsences(snapshot,{confirmed:true});
     return snapshot;
   }catch(e){
     const status=$('absenceAutoStatus');
-    if(status)status.textContent='自動更新に失敗しました';
+    if(status)status.textContent=hasLocal?'保存データを表示中（更新失敗）':'自動更新に失敗しました';
     throw e;
   }
 }
 window.archiveHistory=archiveHistory;window.restoreHistory=restoreHistory;window.deleteHistoryPermanent=deleteHistoryPermanent;
-document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');resetHistoryFilters();loadHistory()}; $('reloadHistory').onclick=()=>{showNormalHistoryControls();loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{resetHistoryFilters();loadHistory()}; if($('refreshHistoryBtn')) $('refreshHistoryBtn').onclick=()=>loadHistory(); if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{showNormalHistoryControls();loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{refreshAbsenceBtn.disabled=true; refreshAbsenceBtn.textContent='更新中…'; try{const r=normalizeAbsenceSnapshot_(await api.refreshAbsences()); localStorage.setItem('step_absences_v313',JSON.stringify(r)); renderAbsences(r); alert('欠席連絡を更新しました：'+r.items.length+'件');}catch(e){alert('欠席連絡の更新エラー：'+e.message)} finally{refreshAbsenceBtn.disabled=false; refreshAbsenceBtn.textContent='欠席連絡を手動更新';}}; setInterval(()=>{loadAbsences().catch(()=>{})},300000); setInterval(()=>{loadAbsences({refreshSource:true}).catch(()=>{})},600000);});
+document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.message)); $('dateDisplay').onclick=openNativeDate; $('dateInput').onchange=()=>{syncDate();updatePreview()}; ['timeSelect','customTime','subjectInput'].forEach(id=>$(id).oninput=updatePreview); $('templateSelect').onchange=applyTemplate; ['schoolFilter','nameFilter'].forEach(id=>$(id).oninput=renderStudents);  const refreshStudentsNow=async()=>{if(!confirm('生徒マスタから最新情報を取り込みますか？'))return; $('listCount').textContent='生徒情報を更新中…'; try{const r=await api.refreshStudents(); students=await api.getStudents(); localStorage.setItem('step_students_v314_roman', JSON.stringify(students)); selected.clear(); renderStudents(); alert('生徒情報を更新しました：'+(r.count||students.length)+'人');}catch(e){alert('更新エラー：'+e.message)}}; if($('refreshStudentsBtn')) $('refreshStudentsBtn').onclick=refreshStudentsNow; if($('refreshStudentsTopBtn')) $('refreshStudentsTopBtn').onclick=refreshStudentsNow; $('selectVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.set(s.id,s));renderStudents()}; $('clearVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.delete(s.id));renderStudents()}; $('invertVisibleBtn').onclick=()=>{filtered().forEach(s=>selected.has(s.id)?selected.delete(s.id):selected.set(s.id,s));renderStudents()}; $('clearAllSelectedBtn').onclick=()=>{selected.clear();renderStudents();updatePreview()}; if($('decideSelectionBtn')) $('decideSelectionBtn').onclick=decideSelection; $('clearGradeBtn').onclick=()=>{activeGrades.clear();renderGradeButtons();renderStudents()}; $('sortAscBtn').onclick=()=>{sortMode='asc';renderStudents()}; $('sortDescBtn').onclick=()=>{sortMode='desc';renderStudents()}; $('toggleBodyBtn').onclick=()=>$('bodyEditor').classList.toggle('hidden'); $('saveBodyBtn').onclick=updatePreview; $('sendBtn').onclick=send; $('fileInput').onchange=e=>{files=[...files,...e.target.files];renderFiles()}; const dz=$('dropZone'); dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')}; dz.ondragleave=()=>dz.classList.remove('drag'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');files=[...files,...e.dataTransfer.files];renderFiles()}; $('absenceTab').onclick=()=>{$('absencePanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');$('absenceTab').classList.add('active');$('historyTab').classList.remove('active')}; $('historyTab').onclick=()=>{$('historyPanel').classList.remove('hidden');$('absencePanel').classList.add('hidden');$('historyTab').classList.add('active');$('absenceTab').classList.remove('active');resetHistoryFilters();loadHistory()}; $('reloadHistory').onclick=()=>{showNormalHistoryControls();loadHistory()}; const clearHistBtn=$('clearHistorySearchBtn'); if(clearHistBtn) clearHistBtn.onclick=()=>{resetHistoryFilters();loadHistory()}; if($('refreshHistoryBtn')) $('refreshHistoryBtn').onclick=()=>loadHistory(); if($('showArchiveBtn')) $('showArchiveBtn').onclick=()=>{historyMode='archive';$('showArchiveBtn').classList.add('hidden');$('showNormalHistoryBtn').classList.remove('hidden');loadHistory()}; if($('showNormalHistoryBtn')) $('showNormalHistoryBtn').onclick=()=>{showNormalHistoryControls();loadHistory()}; const refreshAbsenceBtn=$('refreshAbsenceCacheBtn'); if(refreshAbsenceBtn) refreshAbsenceBtn.onclick=async()=>{refreshAbsenceBtn.disabled=true; refreshAbsenceBtn.textContent='更新中…'; try{const r=await loadAbsences({refreshSource:true,skipLocal:true}); alert('欠席連絡を更新しました：'+r.items.length+'件');}catch(e){alert('欠席連絡の更新エラー：'+e.message)} finally{refreshAbsenceBtn.disabled=false; refreshAbsenceBtn.textContent='欠席連絡を手動更新';}}; setInterval(()=>{loadAbsences({skipLocal:true}).catch(()=>{})},300000);});
