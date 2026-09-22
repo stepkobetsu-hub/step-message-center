@@ -381,10 +381,8 @@ document.addEventListener('DOMContentLoaded',()=>{load().catch(e=>alert(e.messag
     }
     if(status)status.textContent='現在の表示を更新しました（元データ確認中）…';
     refreshAbsenceBtn.disabled=true;
-    refreshAbsenceBtn.textContent='確認を開始しました';
     setTimeout(()=>{
       refreshAbsenceBtn.disabled=false;
-      refreshAbsenceBtn.textContent='欠席連絡を手動更新';
     },700);
 
     // 時間のかかる元シート全件確認は完全に裏側で行い、完了時に表示を差し替える。
