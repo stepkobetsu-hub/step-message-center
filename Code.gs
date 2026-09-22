@@ -1,14 +1,15 @@
 // ==================================================
-// STEP配信システム Code.gs Ver.31.2
+// STEP配信システム Code.gs Ver.31.4
 // 安定化版：生徒キャッシュ・欠席キャッシュ高速化・履歴代表本文
 // ==================================================
-const VERSION = 'Ver.31.2';
+const VERSION = 'Ver.31.4';
 const SHEET_SETTING = '設定';
 const SHEET_TEMPLATE = 'テンプレート';
 const SHEET_HISTORY = '配信履歴';
 const SHEET_STUDENT_CACHE = '生徒キャッシュ';
 const SHEET_MAIL_SETTING = 'メール設定';
 const SHEET_ABSENCE_CACHE = '欠席キャッシュ';
+const ABSENCE_CACHE_UPDATED_PROPERTY = 'ABSENCE_CACHE_UPDATED_AT';
 const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','フリガナ','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
 const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
@@ -66,7 +67,7 @@ function fullDateForBody_(dateValue, dateText, weekday){
   return weekday ? t+'（'+weekday+'）' : t;
 }
 function jsonOut_(obj,cb){const txt=cb?`${cb}(${JSON.stringify(obj)});`:JSON.stringify(obj); return ContentService.createTextOutput(txt).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON);}
-function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='getExamTicketStudents')r=getExamTicketStudents_(e.parameter.year,e.parameter.refresh==='1'); else if(a==='getExamListeningSettings')r=getExamListeningSettings_(e.parameter.year,e.parameter.round); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
+function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='getAbsenceSnapshot')r=getAbsenceSnapshot(); else if(a==='getExamTicketStudents')r=getExamTicketStudents_(e.parameter.year,e.parameter.refresh==='1'); else if(a==='getExamListeningSettings')r=getExamListeningSettings_(e.parameter.year,e.parameter.round); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
 function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='saveExamSchoolCode')r=saveExamSchoolCode_(d); else if(d.action==='saveExamListeningSettings')r=saveExamListeningSettings_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
 function normalizeGrade_(g){return String(g||'').replace(/[０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-65248)).replace(/　| /g,'').trim();}
 function ensureStudentCache_(ss){
@@ -531,18 +532,58 @@ function readAbsencesDirect_(){
   return out;
 }
 
-function refreshAbsenceCache(){
+function readAbsenceCacheSnapshot_(){
   const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureAbsenceCache_(ss);
-  const list=readAbsencesDirect_();
-  const now=new Date();
   const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
-  cache.clearContents();
-  cache.appendRow(['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','受付時刻','更新日時']);
-  if(list.length){
-    const rows=list.map(a=>[a.dateObj,a.dateLabel,a.isToday,a.school,a.name,a.reason,a.kind,a.other,a.row,a.receivedLabel||'',now]);
-    cache.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+  const values=cache.getDataRange().getValues();
+  const items=[];
+  let updatedAt=String(PropertiesService.getScriptProperties().getProperty(ABSENCE_CACHE_UPDATED_PROPERTY)||'');
+  for(let i=1;i<values.length;i++){
+    const r=values[i];
+    if(r[10] instanceof Date && !isNaN(r[10].getTime())){
+      const stamp=Utilities.formatDate(r[10],'Asia/Tokyo','yyyy/MM/dd HH:mm:ss');
+      if(!updatedAt || stamp>updatedAt) updatedAt=stamp;
+    }
+    if(!r[0]) continue;
+    items.push({
+      dateLabel:String(r[1]||''),
+      isToday:r[2]===true || r[2]==='TRUE',
+      school:String(r[3]||''),
+      name:String(r[4]||''),
+      reason:String(r[5]||''),
+      kind:String(r[6]||''),
+      other:String(r[7]||''),
+      row:r[8]||'',
+      receivedLabel:String(r[9]||'')
+    });
   }
-  return {ok:true,count:list.length,updatedAt:Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss'),items:list.map(({dateObj,...rest})=>rest)};
+  return {items:items,updatedAt:updatedAt};
+}
+
+function refreshAbsenceCache(){
+  const lock=LockService.getScriptLock();
+  if(!lock.tryLock(5000)){
+    const current=readAbsenceCacheSnapshot_();
+    return {ok:true,skipped:true,count:current.items.length,updatedAt:current.updatedAt,items:current.items};
+  }
+  try{
+    const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureAbsenceCache_(ss);
+    const list=readAbsencesDirect_();
+    const now=new Date();
+    const updatedAt=Utilities.formatDate(now,'Asia/Tokyo','yyyy/MM/dd HH:mm:ss');
+    const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
+    const header=['日付','日付表示','本日','校舎','生徒名','理由','欠席遅刻','その他','元行','受付時刻','更新日時'];
+    const rows=[header].concat(list.map(a=>[a.dateObj,a.dateLabel,a.isToday,a.school,a.name,a.reason,a.kind,a.other,a.row,a.receivedLabel||'',now]));
+    const previousLastRow=cache.getLastRow();
+    cache.getRange(1,1,rows.length,header.length).setValues(rows);
+    if(previousLastRow>rows.length){
+      cache.getRange(rows.length+1,1,previousLastRow-rows.length,header.length).clearContent();
+    }
+    PropertiesService.getScriptProperties().setProperty(ABSENCE_CACHE_UPDATED_PROPERTY,updatedAt);
+    return {ok:true,count:list.length,updatedAt:updatedAt,items:list.map(({dateObj,...rest})=>rest)};
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function installAbsenceSubmitTrigger(){
@@ -559,33 +600,17 @@ function onAbsenceFormSubmit(e){
   refreshAbsenceCache();
 }
 
+function getAbsenceSnapshot(){
+  let snapshot=readAbsenceCacheSnapshot_();
+  if(!snapshot.updatedAt){
+    const refreshed=refreshAbsenceCache();
+    snapshot={items:refreshed.items||[],updatedAt:refreshed.updatedAt||''};
+  }
+  return snapshot;
+}
+
 function getAbsences(){
-  // Ver.31.2：画面表示は欠席キャッシュだけを読みます（高速化）。
-  // キャッシュが空のときだけ元の「★欠席遅刻」シートから作り直します。
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
-  ensureAbsenceCache_(ss);
-  const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
-  if(cache.getLastRow()<2){
-    refreshAbsenceCache();
-  }
-  const values=cache.getDataRange().getValues();
-  const out=[];
-  for(let i=1;i<values.length;i++){
-    const r=values[i];
-    if(!r[0]) continue;
-    out.push({
-      dateLabel:String(r[1]||''),
-      isToday:r[2]===true || r[2]==='TRUE',
-      school:String(r[3]||''),
-      name:String(r[4]||''),
-      reason:String(r[5]||''),
-      kind:String(r[6]||''),
-      other:String(r[7]||''),
-      row:r[8]||'',
-      receivedLabel:String(r[9]||'')
-    });
-  }
-  return out;
+  return getAbsenceSnapshot().items;
 }
 
 
