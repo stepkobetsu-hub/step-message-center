@@ -112,10 +112,11 @@ const api = {
   getHistory: (params) => jsonp('getHistory', params),
   getAbsences: () => jsonp('getAbsences'),
   getAbsenceSnapshot: async () => {
-    const result=await jsonp('getAbsenceSnapshot');
+    // 自動確認は再試行しない。失敗時は画面の保存データを維持し、次回確認に任せる。
+    const result=await jsonpOnce('getAbsenceSnapshot');
     if(result && Array.isArray(result.items))return result;
     // 古いGASが残っている移行中だけ従来APIへフォールバックする。
-    if(result && result.version)return {items:await jsonp('getAbsences'),updatedAt:''};
+    if(result && result.version)return {items:await jsonpOnce('getAbsences'),updatedAt:''};
     throw new Error('欠席連絡データの形式が正しくありません。');
   },
   investigateSend: (requestId) => jsonp('investigateSend', { requestId }),
@@ -128,5 +129,6 @@ const api = {
   saveTemplateAs: (payload) => postJson({ action: 'saveTemplateAs', ...payload }),
   deleteTemplate: (id) => postJson({ action: 'deleteTemplate', id }),
   refreshStudents: () => postJson({ action: 'refreshStudents' }),
-  refreshAbsences: () => postJson({ action: 'refreshAbsences' })
+  // 更新処理の再送は重複実行につながるため、手動更新は1回だけ送る。
+  refreshAbsences: () => postJsonOnce({ action: 'refreshAbsences' })
 };
