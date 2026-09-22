@@ -1,8 +1,8 @@
 // ==================================================
-// STEP配信システム Code.gs Ver.31.4
+// STEP配信システム Code.gs Ver.31.5
 // 安定化版：生徒キャッシュ・欠席キャッシュ高速化・履歴代表本文
 // ==================================================
-const VERSION = 'Ver.31.4';
+const VERSION = 'Ver.31.5';
 const SHEET_SETTING = '設定';
 const SHEET_TEMPLATE = 'テンプレート';
 const SHEET_HISTORY = '配信履歴';
@@ -10,6 +10,7 @@ const SHEET_STUDENT_CACHE = '生徒キャッシュ';
 const SHEET_MAIL_SETTING = 'メール設定';
 const SHEET_ABSENCE_CACHE = '欠席キャッシュ';
 const ABSENCE_CACHE_UPDATED_PROPERTY = 'ABSENCE_CACHE_UPDATED_AT';
+const ABSENCE_SNAPSHOT_CACHE_KEY = 'ABSENCE_SNAPSHOT_V315';
 const STUDENT_CACHE_HEADER = ['生徒番号','生徒氏名','フリガナ','校舎','学年','メール1','メール2','メール3','メール4','更新日時'];
 const MASTER_SHEET_NAME = '☆マスタ';
 const DEFAULT_MASTER_ID = '1CIJkTlYUcUkbb8jBdFc6L8D5ubTGsxwNxFv01ten-Zk';
@@ -532,7 +533,29 @@ function readAbsencesDirect_(){
   return out;
 }
 
+function getCachedAbsenceSnapshot_(){
+  try{
+    const raw=CacheService.getScriptCache().get(ABSENCE_SNAPSHOT_CACHE_KEY);
+    if(!raw) return null;
+    const snapshot=JSON.parse(raw);
+    return snapshot && Array.isArray(snapshot.items) && snapshot.updatedAt ? snapshot : null;
+  }catch(err){
+    return null;
+  }
+}
+
+function cacheAbsenceSnapshot_(snapshot){
+  try{
+    CacheService.getScriptCache().put(ABSENCE_SNAPSHOT_CACHE_KEY,JSON.stringify(snapshot),21600);
+  }catch(err){
+    // キャッシュ容量超過などの場合も、シート上の欠席キャッシュはそのまま利用できます。
+  }
+  return snapshot;
+}
+
 function readAbsenceCacheSnapshot_(){
+  const cached=getCachedAbsenceSnapshot_();
+  if(cached) return cached;
   const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureAbsenceCache_(ss);
   const cache=ss.getSheetByName(SHEET_ABSENCE_CACHE);
   const values=cache.getDataRange().getValues();
@@ -557,7 +580,7 @@ function readAbsenceCacheSnapshot_(){
       receivedLabel:String(r[9]||'')
     });
   }
-  return {items:items,updatedAt:updatedAt};
+  return cacheAbsenceSnapshot_({items:items,updatedAt:updatedAt});
 }
 
 function refreshAbsenceCache(){
@@ -580,7 +603,8 @@ function refreshAbsenceCache(){
       cache.getRange(rows.length+1,1,previousLastRow-rows.length,header.length).clearContent();
     }
     PropertiesService.getScriptProperties().setProperty(ABSENCE_CACHE_UPDATED_PROPERTY,updatedAt);
-    return {ok:true,count:list.length,updatedAt:updatedAt,items:list.map(({dateObj,...rest})=>rest)};
+    const snapshot=cacheAbsenceSnapshot_({items:list.map(({dateObj,...rest})=>rest),updatedAt:updatedAt});
+    return {ok:true,count:snapshot.items.length,updatedAt:snapshot.updatedAt,items:snapshot.items};
   } finally {
     lock.releaseLock();
   }
