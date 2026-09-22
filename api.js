@@ -114,7 +114,9 @@ const api = {
   getAbsenceSnapshot: async () => {
     const result=await jsonp('getAbsenceSnapshot');
     if(result && Array.isArray(result.items))return result;
-    return {items:await jsonp('getAbsences'),updatedAt:''};
+    // 古いGASが残っている移行中だけ従来APIへフォールバックする。
+    if(result && result.version)return {items:await jsonp('getAbsences'),updatedAt:''};
+    throw new Error('欠席連絡データの形式が正しくありません。');
   },
   investigateSend: (requestId) => jsonp('investigateSend', { requestId }),
   sendMail: (payload) => postJson({ action: 'sendSelected', ...payload }),
