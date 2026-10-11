@@ -29,7 +29,7 @@ function gradeMatch(g){if(!activeGrades.size)return false;if(activeGrades.has('�
 const GRADE_ORDER=['小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3'];
 function gradeRank(g){const i=GRADE_ORDER.indexOf(g);return i>=0?i:999}
 function gradeClass(g){if(String(g).startsWith('小'))return 'gradeElem';if(String(g).startsWith('中'))return 'gradeJr';if(String(g).startsWith('高'))return 'gradeHigh';return ''}
-function normalizeStudentSearch_(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60)).replace(/[\s　]+/g,'')}
+function normalizeStudentSearch_(value){return String(value||'').normalize('NFKC').replace(/髙/g,'高').toLowerCase().replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60)).replace(/[\s　]+/g,'')}
 const ROMAJI_PAIRS_={
   'きゃ':'kya','きゅ':'kyu','きょ':'kyo','ぎゃ':'gya','ぎゅ':'gyu','ぎょ':'gyo',
   'しゃ':'sha','しゅ':'shu','しょ':'sho','じゃ':'ja','じゅ':'ju','じょ':'jo',
