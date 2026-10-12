@@ -151,12 +151,12 @@ async function load(){
 }
 function syncDate(){ $('dateDisplay').value=fmtDate($('dateInput').value) }
 function openNativeDate(){ $('dateInput').showPicker?.(); $('dateInput').click() }
-function showConfirm(){
-  const arr=[...selected.values()];
-  const title=$('subjectInput').value;
-  const d=jpShort($('dateInput').value);
-  const t=timeText();
-  const isTokkun=(currentTemplate?.id||'').includes('tokkun');
+function showConfirm(delivery=null,payload=null,recipients=null){
+  const arr=recipients||[...selected.values()];
+  const title=payload?payload.subject:$('subjectInput').value;
+  const d=jpShort(payload?payload.dateValue:$('dateInput').value);
+  const t=payload?payload.timeText:timeText();
+  const isTokkun=(payload?payload.templateId:(currentTemplate?.id||'')).includes('tokkun');
   const isNotArrived=title.includes('まだお見えになっておりません');
   const showDate=isTokkun||isNotArrived;
   const guideDateText=isTokkun?`${d} ${t}`:`本日 ${t}`;
@@ -169,7 +169,7 @@ function showConfirm(){
       document.body.appendChild(modal);
     }
     modal.innerHTML=`<section class="confirmDialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmWarning">
-      <h2 id="confirmTitle">送信内容の最終確認</h2>
+      <h2 id="confirmTitle">${delivery?'予約内容の最終確認':'送信内容の最終確認'}</h2>
       <p id="confirmWarning" class="confirmWarning">内容を十分に確認してから送信してください</p>
       <div class="confirmMain">
         <div class="confirmRecipients">
@@ -177,6 +177,7 @@ function showConfirm(){
           <ul>${arr.map(s=>`<li><span class="gradeBadge ${gradeClass(s.grade)}">${escapeHTML(s.grade)}</span><strong>${escapeHTML(s.name)}さん</strong></li>`).join('')}</ul>
         </div>
         <dl class="confirmDetails">
+          ${delivery?`<div><dt>予約配信日時</dt><dd class="scheduledTime">${escapeHTML(delivery.label)}（日本時間）</dd></div>`:''}
           <div><dt>送信件数</dt><dd class="confirmCount">${arr.length}件</dd></div>
           <div><dt>件名</dt><dd>${escapeHTML(title)}</dd></div>
           ${showDate?`<div><dt>案内日時</dt><dd>${escapeHTML(guideDateText)}</dd></div>`:''}
@@ -184,7 +185,7 @@ function showConfirm(){
       </div>
       <div class="confirmActions">
         <button id="confirmCancelBtn" type="button" class="confirmCancelBtn">キャンセル</button>
-        <button id="confirmSendBtn" type="button" class="confirmSendBtn">この内容で送信する</button>
+        <button id="confirmSendBtn" type="button" class="confirmSendBtn">${delivery?'この内容で配信を予約する':'この内容で送信する'}</button>
       </div>
     </section>`;
     const cancelBtn=$('confirmCancelBtn');
@@ -229,36 +230,105 @@ async function investigateSend(requestId,targetId='sendInvestigationResult'){con
 function showSendError(e,requestId){let m=$('sendModal'); if(!m){m=document.createElement('div');m.id='sendModal';m.className='modalOverlay';document.body.appendChild(m)} m.innerHTML=`<div class="modalBox warn"><h2>送信結果を確認できませんでした</h2><pre class="errorList">${escapeHTML(e.message||e)}</pre><p>実際には送信できている場合があります。再送する前に調査してください。</p><div id="sendInvestigationResult"></div><div class="modalActions"><button id="investigateSendBtn" class="btn primary">送信できたかを調査する</button><button class="btn" onclick="document.getElementById('sendModal').classList.add('hidden')">閉じる</button></div></div>`; m.classList.remove('hidden');$('investigateSendBtn').onclick=()=>investigateSend(requestId)}
 async function showDeliveryLog(){let m=$('deliveryLogModal');if(!m){m=document.createElement('div');m.id='deliveryLogModal';m.className='modalOverlay';document.body.appendChild(m)}const list=readSendRequests();m.innerHTML=`<div class="modalBox deliveryLogModal" role="dialog" aria-modal="true" aria-labelledby="deliveryLogTitle"><div class="deliveryLogHead"><h2 id="deliveryLogTitle">この端末の送信ログ</h2><button type="button" class="deliveryLogClose" aria-label="送信ログを閉じる">×</button></div><div id="deliveryLogList">${list.length?list.map(x=>`<button class="deliveryLogRow" data-request-id="${escapeHTML(x.id)}"><b>${escapeHTML(x.names||'送信先')}</b><span>${escapeHTML(x.createdAt||'')}</span><small>結果を確認</small></button>`).join(''):'<div class="muted">この端末の送信記録はまだありません。</div>'}</div><button type="button" class="btn deliveryLogBottomClose">閉じる</button></div>`;const close=()=>m.classList.add('hidden');m.querySelectorAll('.deliveryLogClose,.deliveryLogBottomClose').forEach(btn=>btn.onclick=close);m.onclick=e=>{if(e.target===m)close()};m.onkeydown=e=>{if(e.key==='Escape')close()};m.classList.remove('hidden');m.querySelector('.deliveryLogClose')?.focus();m.querySelectorAll('.deliveryLogRow').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;const label=btn.querySelector('b')?.textContent||'';const result=await api.investigateSend(btn.dataset.requestId).catch(e=>({found:false,error:e.message}));btn.outerHTML=`<div class="deliveryLogDetail"><b>${escapeHTML(label)}</b>${result.error?`<div class="deliveryUnknown">${escapeHTML(result.error)}</div>`:investigationSummary(result)}</div>`})}
 function ensureDeliveryLogButton(){const top=document.querySelector('.top>div:last-child');if(!top||$('deliveryLogBtn'))return;const btn=document.createElement('button');btn.id='deliveryLogBtn';btn.type='button';btn.className='btn deliveryLogBtn';btn.textContent='送信ログ確認';btn.onclick=showDeliveryLog;const related=top.querySelector('.systemNav');if(related)related.after(btn);else top.prepend(btn)}
-async function send(){
-  if(!selected.size){alert('送信先を選択してください');return}
-  if(!(await showConfirm()))return;
-  const requestId=createSendRequestId();
-  const selectedNames=[...selected.values()].map(s=>s.name).join('、');
-  rememberSendRequest({id:requestId,names:selectedNames,createdAt:new Date().toLocaleString('ja-JP')});
-  $('status').textContent='送信中です…';
-  showSendProgress();
-  try{
-    const at=await buildAttachments();
-    const res=await api.sendMail({sendRequestId:requestId,templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpDateOnly($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:at});
-    if(!res || res.error) throw new Error(res?.message || '送信結果が確認できませんでした');
-    const errText=(res.errors&&res.errors.length)?`（エラー：${res.errors.join(' / ')}）`:'';
-    $('status').textContent=`送信完了：${res.sentCount||0}件${errText}`;
-    showSendResult(res);
-    selected.clear();
-    files=[];
-    activeGrades=new Set(['全生徒']);
-    sortMode='asc';
-    $('schoolFilter').value='全校舎';
-    $('nameFilter').value='';
-    renderFiles();
-    renderGradeButtons();
-    renderStudents();
-    loadHistory();
-  }catch(e){
-    $('status').textContent='エラー：'+e.message;
-    showSendError(e,requestId);
-  }
+let sendingBusy=false, pendingSchedule=null, scheduledSupport=false;
+function scheduleSelection(){
+  if($('deliveryMode')?.value!=='scheduled')return null;
+  if(!scheduledSupport)throw new Error('予約機能の準備が完了していません');
+  const value=$('scheduledAtInput').value;
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))throw new Error('配信日時を指定してください');
+  const iso=value+':00+09:00',ms=new Date(iso).getTime();
+  if(!Number.isFinite(ms)||ms<Date.now()+60000)throw new Error('配信日時は現在より1分以上先を指定してください');
+  if(ms>Date.now()+366*86400000)throw new Error('配信日時は1年以内を指定してください');
+  return {iso,label:value.replace('T',' ').replaceAll('-','/')};
 }
+function syncDeliveryMode(){
+  const scheduled=$('deliveryMode').value==='scheduled';
+  $('scheduleInputWrap').classList.toggle('hidden',!scheduled);
+  $('sendBtn').textContent=scheduled?'配信を予約する':'配信する';
+}
+async function checkScheduleSupport(){
+  try{
+    const result=await api.getScheduledDeliveries();
+    scheduledSupport=result?.supported===true&&Array.isArray(result.items);
+    $('scheduledModeOption').disabled=!scheduledSupport;
+    $('scheduleAvailability').textContent=scheduledSupport?'':'予約機能は本番設定の準備中です';
+  }catch(e){$('scheduleAvailability').textContent='予約機能を確認できません。予約一覧から再確認できます';}
+}
+function finishComposer(){
+  selected.clear();files=[];activeGrades=new Set(['全生徒']);sortMode='asc';
+  $('schoolFilter').value='全校舎';$('nameFilter').value='';$('fileInput').value='';
+  $('deliveryMode').value='now';$('scheduledAtInput').value='';syncDeliveryMode();
+  renderFiles();renderGradeButtons();renderStudents();updatePreview();
+}
+function showScheduleResult(res){
+  pendingSchedule=null;
+  const waiting=res.state==='予約中';
+  $('status').textContent=`${waiting?'予約しました':'予約の状態：'+res.state}：${res.scheduledLabel}（日本時間）`;
+  let modal=$('sendModal');if(!modal){modal=document.createElement('div');modal.id='sendModal';modal.className='modalOverlay';document.body.appendChild(modal);}
+  modal.innerHTML=`<div class="modalBox success"><h2>${waiting?'配信を予約しました':'予約の状態：'+escapeHTML(res.state)}</h2><p class="scheduledTime">${escapeHTML(res.scheduledLabel)}（日本時間）</p>${waiting?'<p>画面を閉じても自動配信されます。</p>':''}<p>予約一覧で確認できます。</p><button id="scheduleResultClose" class="btn primary">OK</button></div>`;
+  modal.classList.remove('hidden');$('scheduleResultClose').onclick=()=>modal.classList.add('hidden');finishComposer();
+}
+async function send(){
+  if(sendingBusy)return;
+  if(!selected.size){alert('送信先を選択してください');return;}
+  let delivery;
+  try{delivery=scheduleSelection();}catch(e){alert(e.message);return;}
+  if(delivery&&(!$('subjectInput').value.trim()||!$('bodyInput').value.trim())){alert('件名と本文を入力してください');return;}
+  sendingBusy=true;$('sendBtn').disabled=true;
+  let requestId;
+  try{
+    const recipients=[...selected.values()].map(s=>({...s}));
+    const payload={templateId:currentTemplate?.id||'',subject:$('subjectInput').value,body:$('bodyInput').value,studentIds:[...selected.keys()],dateText:jpDateOnly($('dateInput').value),dateValue:$('dateInput').value,weekday:W[new Date($('dateInput').value+'T00:00:00').getDay()],timeText:timeText(),attachments:await buildAttachments()};
+    if(!(await showConfirm(delivery,payload,recipients)))return;
+    requestId=createSendRequestId();
+    if(delivery){
+      const fingerprint=JSON.stringify({...payload,scheduledAt:delivery.iso});
+      if(pendingSchedule?.fingerprint===fingerprint)requestId=pendingSchedule.id;
+      pendingSchedule={fingerprint,id:requestId};
+      $('status').textContent='予約を保存しています…';
+      const result=await api.scheduleMail({...payload,sendRequestId:requestId,scheduledAt:delivery.iso});
+      if(!result?.ok||!result.id)throw new Error(result?.message||'予約の保存を確認できませんでした');
+      showScheduleResult(result);
+    }else{
+      rememberSendRequest({id:requestId,names:[...selected.values()].map(s=>s.name).join('、'),createdAt:new Date().toLocaleString('ja-JP')});
+      $('status').textContent='送信中です…';showSendProgress();
+      const result=await api.sendMail({...payload,sendRequestId:requestId});
+      if(!result||result.error)throw new Error(result?.message||'送信結果が確認できませんでした');
+      const errText=result.errors?.length?`（エラー：${result.errors.join(' / ')}）`:'';
+      $('status').textContent=`送信完了：${result.sentCount||0}件${errText}`;showSendResult(result);finishComposer();loadHistory();
+    }
+  }catch(e){
+    $('status').textContent=delivery?'予約を確認できませんでした：'+e.message+'。予約一覧を確認してください。同じ内容で再操作した場合は同じ予約IDで確認します。':'エラー：'+e.message;
+    if(delivery)alert($('status').textContent);else if(requestId)showSendError(e,requestId);else alert(e.message);
+  }finally{sendingBusy=false;$('sendBtn').disabled=false;}
+}
+async function showScheduledList(){
+  let modal=$('scheduledListModal');if(!modal){modal=document.createElement('div');modal.id='scheduledListModal';modal.className='modalOverlay';document.body.appendChild(modal);}
+  modal.innerHTML='<section class="modalBox scheduleListBox" role="dialog" aria-modal="true" aria-label="配信予約一覧"><div class="toolbar"><h2>配信予約一覧</h2><button id="closeScheduledList" class="btn">閉じる</button></div><p class="muted">日時は日本時間です。配信前の予約をキャンセルできます。</p><button id="refreshScheduledList" class="btn">一覧を更新</button><div id="scheduledListContent" aria-live="polite">読み込み中…</div></section>';
+  modal.classList.remove('hidden');$('closeScheduledList').onclick=()=>modal.classList.add('hidden');$('refreshScheduledList').onclick=showScheduledList;
+  try{
+    const result=await api.getScheduledDeliveries();
+    if(result?.supported!==true||!Array.isArray(result.items))throw new Error('予約機能は本番設定の準備中です');
+    scheduledSupport=true;$('scheduledModeOption').disabled=false;$('scheduleAvailability').textContent='';
+    const box=$('scheduledListContent');
+    box.innerHTML=result.items.map(item=>`<article class="scheduleItem"><span class="scheduleState">${escapeHTML(item.state)}</span><p class="scheduledTime">${escapeHTML(item.scheduledLabel)}</p><p><b>${escapeHTML(item.subject)}</b></p><p>送信先：${escapeHTML(item.names)}</p>${item.result?.sentCount!==undefined?`<p>送信成功：${Number(item.result.sentCount)}件</p>`:''}${item.result?.errors?.length?`<p class="warn">${escapeHTML(item.result.errors.join(' / '))}</p>`:''}<div class="scheduleActions"><button type="button" class="btn small" data-detail-id="${escapeHTML(item.id)}">予約内容を見る</button>${item.state==='予約中'?`<button type="button" class="btn small danger" data-cancel-id="${escapeHTML(item.id)}">予約をキャンセル</button>`:''}${['要確認','エラーあり','配信中'].includes(item.state)?`<button class="btn small" data-investigate-id="${escapeHTML(item.id)}">送信ログを確認</button>`:''}</div><div class="scheduleDetail"></div></article>`).join('')||'<p class="muted">予約はありません。</p>';
+    box.querySelectorAll('[data-cancel-id]').forEach(btn=>btn.onclick=async()=>{
+      if(!confirm('この配信予約をキャンセルしますか？'))return;
+      btn.disabled=true;try{await api.cancelScheduledDelivery(btn.dataset.cancelId);await showScheduledList();}catch(e){alert(e.message);btn.disabled=false;}
+    });
+    box.querySelectorAll('[data-detail-id]').forEach(btn=>btn.onclick=async()=>{
+      btn.disabled=true;const detail=btn.closest('.scheduleItem').querySelector('.scheduleDetail');
+      try{const item=await api.getScheduledDeliveryDetail(btn.dataset.detailId);detail.innerHTML=`<p>案内日：${escapeHTML(item.dateValue)}　時間帯：${escapeHTML(item.timeText)}</p><pre>${escapeHTML(item.body)}</pre><p>添付：${escapeHTML(item.attachments.join('、')||'なし')}</p><p class="muted">{{生徒名}}などは、各生徒の情報に置き換えて配信します。</p>`;}catch(e){detail.textContent=e.message;}finally{btn.disabled=false;}
+    });
+    box.querySelectorAll('[data-investigate-id]').forEach(btn=>btn.onclick=async()=>{
+      btn.disabled=true;const detail=btn.closest('.scheduleItem').querySelector('.scheduleDetail');
+      try{detail.innerHTML=investigationSummary(await api.investigateSend(btn.dataset.investigateId));}catch(e){detail.textContent=e.message;}finally{btn.disabled=false;}
+    });
+  }catch(e){$('scheduledListContent').textContent=e.message;}
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  $('deliveryMode').onchange=syncDeliveryMode;$('scheduledListBtn').onclick=showScheduledList;checkScheduleSupport();
+});
 function renderFiles(){ $('fileList').innerHTML=files.map(f=>`📎 ${f.name}`).join('<br>') }
 async function loadHistory(){
   const loadSeq=++historyLoadSeq;

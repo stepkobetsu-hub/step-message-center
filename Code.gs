@@ -31,7 +31,14 @@ function ensureSetting_(ss){let sh=ss.getSheetByName(SHEET_SETTING)||ss.insertSh
 function ensureTemplate_(ss){let sh=ss.getSheetByName(SHEET_TEMPLATE)||ss.insertSheet(SHEET_TEMPLATE); if(sh.getLastRow()<1){sh.appendRow(['ID','タイトル','件名','本文','使用','削除']); addDefaultTemplates_(sh);}}
 function addDefaultTemplates_(sh){sh.appendRow(['mada','まだお見えになっておりません','まだお見えになっておりません',`{{生徒名}}さん\n\nお世話になります。\n★本日は　{{時間帯}}で授業です。★\nまだお見えになっておりません。\n\nご確認のほどよろしくお願いいたします。\n※ご連絡いただいてる方、行き違いなどご容赦ください。\n\nまた、ご欠席・遅刻される場合は、こちらよりご連絡いただけますと助かります。\nhttps://x.gd/WfTJM\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。\n\n個別指導ステップ`,true,'']);sh.appendRow(['tokkun','特訓部屋のお知らせ','特訓部屋のお知らせ',`{{生徒名}}さん\n\n★{{日付}}{{時間帯}}　★\nいつもお世話になっております。\n本日の確認テストの結果が不合格でした（2問以上間違えると不合格になります）。\n確認テストは前回指導内容の理解度の目安です。\nこのため別日程（上記日時）で特訓部屋に参加して、勉強内容の確認をさせていただきます。\n\n※ご都合が悪い場合、お手数ですが早めに教室まで「お電話」または「公式LINE」にてご連絡をいただけると幸いです。\n個別指導ステップ {{電話番号}}\n\n※ 本メールは送信専用です。ご返信いただいてもお答えできませんのでご了承ください。`,true,'']);sh.appendRow(['free','自由記述','',`{{生徒名}}さん\n\n`,true,'']);}
 function ensureHistory_(ss){let sh=ss.getSheetByName(SHEET_HISTORY)||ss.insertSheet(SHEET_HISTORY); if(sh.getLastRow()<1){sh.appendRow(['履歴ID','送信日時','送信日','テンプレートID','件名','本文','送信先','送信件数','案内日','案内曜日','案内時間','添付名','結果','表示']);}}
-function getSettings_(){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SETTING); if(!sh) return {'生徒マスタID':DEFAULT_MASTER_ID,'欠席遅刻シートID':DEFAULT_ABSENCE_ID}; const v=sh.getDataRange().getValues(); const o={}; for(let i=1;i<v.length;i++) o[v[i][0]]=v[i][1]; return o;}
+function getStepSpreadsheet_(){
+  const active=SpreadsheetApp.getActiveSpreadsheet();
+  if(active)return active;
+  const id=PropertiesService.getScriptProperties().getProperty('STEP_SCHEDULE_SS_ID');
+  if(!id)throw new Error('配信データの保存先が見つかりません');
+  return SpreadsheetApp.openById(id);
+}
+function getSettings_(){const sh=getStepSpreadsheet_().getSheetByName(SHEET_SETTING); if(!sh) return {'生徒マスタID':DEFAULT_MASTER_ID,'欠席遅刻シートID':DEFAULT_ABSENCE_ID}; const v=sh.getDataRange().getValues(); const o={}; for(let i=1;i<v.length;i++) o[v[i][0]]=v[i][1]; return o;}
 
 function getPublicSettings_(){
   const s=getSettings_();
@@ -68,8 +75,8 @@ function fullDateForBody_(dateValue, dateText, weekday){
   return weekday ? t+'（'+weekday+'）' : t;
 }
 function jsonOut_(obj,cb){const txt=cb?`${cb}(${JSON.stringify(obj)});`:JSON.stringify(obj); return ContentService.createTextOutput(txt).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON);}
-function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='getAbsenceSnapshot')r=getAbsenceSnapshot(); else if(a==='getExamTicketStudents')r=getExamTicketStudents_(e.parameter.year,e.parameter.refresh==='1'); else if(a==='getExamListeningSettings')r=getExamListeningSettings_(e.parameter.year,e.parameter.round); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
-function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='saveExamSchoolCode')r=saveExamSchoolCode_(d); else if(d.action==='saveExamListeningSettings')r=saveExamListeningSettings_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
+function doGet(e){try{const a=e.parameter.action, cb=e.parameter.callback; let r; if(a==='getStudents')r=getStudentList(); else if(a==='getMailSettings')r=getMailSettings_(e.parameter); else if(a==='getTemplates')r=getTemplates(); else if(a==='getSettings')r=getPublicSettings_(); else if(a==='getScheduledDeliveryDetail')r=getScheduledDeliveryDetail_(e.parameter.id); else if(a==='getScheduledDeliveries')r=getScheduledDeliveries_(); else if(a==='getHistory')r=getHistory(e.parameter); else if(a==='getAbsences')r=getAbsences(); else if(a==='getAbsenceSnapshot')r=getAbsenceSnapshot(); else if(a==='getExamTicketStudents')r=getExamTicketStudents_(e.parameter.year,e.parameter.refresh==='1'); else if(a==='getExamListeningSettings')r=getExamListeningSettings_(e.parameter.year,e.parameter.round); else if(a==='investigateSend')r=investigateStepSend_(e.parameter.requestId); else r={ok:true,version:VERSION}; return jsonOut_(r,cb);}catch(err){return jsonOut_({error:true,message:err.message},e.parameter.callback);}}
+function doPost(e){try{const d=JSON.parse(e.postData.contents); let r; if(d.action==='saveSettings')r=saveSettings_(d.settings||{}); else if(d.action==='saveStudentMailSetting')r=saveStudentMailSetting_(d); else if(d.action==='saveExamSchoolCode')r=saveExamSchoolCode_(d); else if(d.action==='saveExamListeningSettings')r=saveExamListeningSettings_(d); else if(d.action==='refreshStudents')r=refreshStudentCache(); else if(d.action==='refreshAbsences')r=refreshAbsenceCache(); else if(d.action==='scheduleSelected')r=scheduleSelected_(d); else if(d.action==='cancelScheduledDelivery')r=cancelScheduledDelivery_(d.id); else if(d.action==='sendSelected')r=sendSelected_(d); else if(d.action==='archiveHistory')r=archiveHistory_(d.id); else if(d.action==='restoreHistory')r=restoreHistory_(d.id); else if(d.action==='deleteHistoryPermanent')r=deleteHistoryPermanent_(d.id); else if(d.action==='saveTemplate')r=saveTemplate_(d,false); else if(d.action==='saveTemplateAs')r=saveTemplate_(d,true); else if(d.action==='deleteTemplate')r=deleteTemplate_(d.id); else throw new Error('不明なactionです'); return jsonOut_(r);}catch(err){return jsonOut_({error:true,message:err.message});}}
 function normalizeGrade_(g){return String(g||'').replace(/[０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-65248)).replace(/　| /g,'').trim();}
 function ensureStudentCache_(ss){
   let sh=ss.getSheetByName(SHEET_STUDENT_CACHE)||ss.insertSheet(SHEET_STUDENT_CACHE);
@@ -85,7 +92,7 @@ function ensureStudentCache_(ss){
 function ensureMailSetting_(ss){let sh=ss.getSheetByName(SHEET_MAIL_SETTING)||ss.insertSheet(SHEET_MAIL_SETTING); if(sh.getLastRow()<1){sh.appendRow(['生徒番号','生徒氏名','校舎','学年','メール1配信','メール2配信','メール3配信','メール4配信','更新日時']);}}
 function boolSetting_(v,def){if(v===true||v==='TRUE'||v==='true'||v===1||v==='1')return true; if(v===false||v==='FALSE'||v==='false'||v===0||v==='0')return false; return def;}
 function getMailEnabledMap_(){
-  const ss=SpreadsheetApp.getActiveSpreadsheet(); ensureMailSetting_(ss); const sh=ss.getSheetByName(SHEET_MAIL_SETTING);
+  const ss=getStepSpreadsheet_(); ensureMailSetting_(ss); const sh=ss.getSheetByName(SHEET_MAIL_SETTING);
   const v=sh.getDataRange().getValues(); const m={};
   for(let i=1;i<v.length;i++){const r=v[i]; if(!r[0])continue; m[String(r[0])]=[boolSetting_(r[4],true),boolSetting_(r[5],true),boolSetting_(r[6],true),boolSetting_(r[7],true)];}
   return m;
@@ -159,12 +166,12 @@ function saveStudentMailSetting_(d){
 }
 function getTemplates(){ensureTemplate_(SpreadsheetApp.getActiveSpreadsheet()); const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_TEMPLATE); const v=sh.getDataRange().getValues(); const out=[]; for(let i=1;i<v.length;i++){if(v[i][5])continue; if(v[i][4]===false||v[i][4]==='FALSE')continue; out.push({id:String(v[i][0]),name:String(v[i][1]),subject:String(v[i][2]||''),body:String(v[i][3]||'')});} return out;}
 function phone_(school,s){if(school==='神領'||school==='神領校')return s['神領校電話']||''; if(school==='大手'||school==='大手町校')return s['大手町校電話']||''; return '';}
-function sendSelected_(d){
-  const s=getSettings_();
+function sendSelected_(d,snapshot){
+  const s=snapshot?snapshot.settings:getSettings_();
   const ids=(d.studentIds||[]).map(String);
   if(!ids.length) throw new Error('送信先が選択されていません');
 
-  const studentMap=getCachedStudentMap_();
+  const studentMap=snapshot?snapshot.studentMap:getCachedStudentMap_();
   const mailEnabledMap=getMailEnabledMap_();
   let sent=0, names=[], errors=[], attNames=[];
 
@@ -376,9 +383,10 @@ function stripHistoryBody_(body){
 }
 
 function saveHistory_(d,names,sent,attNames,errors,representativeBody){
-  ensureHistory_(SpreadsheetApp.getActiveSpreadsheet());
+  const ss=getStepSpreadsheet_();
+  ensureHistory_(ss);
   const bodyToSave = stripHistoryBody_(representativeBody || d.body || '');
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_HISTORY).appendRow([
+  ss.getSheetByName(SHEET_HISTORY).appendRow([
     Utilities.getUuid(),
     new Date(),
     Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy/MM/dd'),
