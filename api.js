@@ -106,6 +106,10 @@ async function postJson(payload) {
 }
 
 const api = {
+  getScheduledDeliveryDetail: (id) => jsonp('getScheduledDeliveryDetail', { id }),
+  getScheduledDeliveries: () => jsonp('getScheduledDeliveries'),
+  scheduleMail: (payload) => postJson({ action: 'scheduleSelected', ...payload }),
+  cancelScheduledDelivery: (id) => postJson({ action: 'cancelScheduledDelivery', id }),
   getStudents: () => jsonp('getStudents'),
   getTemplates: () => jsonp('getTemplates'),
   getSettings: () => jsonp('getSettings'),

@@ -192,3 +192,5 @@
   .confirmMain .confirmDetails>div:nth-child(2) dt{font-size:21px;margin-bottom:3px}
   .confirmMain .confirmDetails>div:nth-child(2) dd{font-size:30px}
 }
+
+.deliveryTiming{margin-top:20px;padding:16px;background:#f3f7fd;border:1px solid #c6d8ee;border-radius:12px}.scheduleTools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#scheduleInputWrap{margin-top:14px}.scheduledTime{font-size:24px;color:#084f96;font-weight:800}.scheduleItem{padding:14px 0;border-bottom:1px solid #d6dce6}.scheduleItem p{margin:6px 0;overflow-wrap:anywhere}.scheduleItem .scheduleState{display:inline-block;padding:3px 9px;border-radius:6px;background:#e4eefc;font-weight:700}.scheduleItem pre{white-space:pre-wrap;overflow-wrap:anywhere}.scheduleListBox{max-height:85vh;overflow:auto}.scheduleItem .warn{color:#b32929}.scheduleItem .scheduleActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}

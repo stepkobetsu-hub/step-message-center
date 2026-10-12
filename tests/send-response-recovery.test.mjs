@@ -38,7 +38,7 @@ test('送信POSTは再送せず、失敗時に照合IDのログを確認する',
 });
 
 test('APIのキャッシュ更新番号が変更されている', () => {
-  assert.match(indexSource, /api\.js\?v=20260813-send-auto-confirm-v1/);
+  assert.match(indexSource, /api\.js\?v=20261012-schedule/);
 });
 
 test('送信成功後はページ初期表示と同じ全生徒フィルターへ戻す', () => {
@@ -46,5 +46,5 @@ test('送信成功後はページ初期表示と同じ全生徒フィルター�
   assert.match(appSource, /\$\('schoolFilter'\)\.value='全校舎'/);
   assert.match(appSource, /\$\('nameFilter'\)\.value=''/);
   assert.match(appSource, /renderGradeButtons\(\);\s*renderStudents\(\)/);
-  assert.match(indexSource, /app\.js\?v=20260813-reset-student-filter-v1/);
+  assert.match(indexSource, /app\.js\?v=20261012-schedule/);
 });
