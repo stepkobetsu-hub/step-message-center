@@ -295,6 +295,18 @@ async function send(){
       $('status').textContent='送信中です…';showSendProgress();
       const result=await api.sendMail({...payload,sendRequestId:requestId});
       if(!result||result.error)throw new Error(result?.message||'送信結果が確認できませんでした');
+      
+      // Read the authoritative sent history; never create a lesson from an unsent draft.
+      if (/tokkun/.test(payload.templateId) || /特訓/.test(payload.subject)) {
+        try {
+          const saved=JSON.parse(localStorage.getItem('stepStaffAppAuth')||'null');
+          const token=saved?.gradeSessionToken||saved?.systemPortalSessionToken;
+          if(token) fetch('https://wisedgcgwaebtkprdhth.supabase.co/functions/v1/step-timetable-runtime-v1',{
+            method:'POST',headers:{'Content-Type':'text/plain'},
+            body:JSON.stringify({action:'syncTokkun',token,campus:'神領'}),signal:AbortSignal.timeout(60000)
+          }).catch(()=>{});
+        } catch(ignore) {}
+      }
       const errText=result.errors?.length?`（エラー：${result.errors.join(' / ')}）`:'';
       $('status').textContent=`送信完了：${result.sentCount||0}件${errText}`;showSendResult(result);finishComposer();loadHistory();
     }
