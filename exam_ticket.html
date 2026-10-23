@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#14532d">
   <title>愛知全県模試 受験票作成</title>
-  <link rel="stylesheet" href="exam_ticket.css?v=20260819-10">
+  <link rel="stylesheet" href="exam_ticket.css?v=20261024-1">
 </head>
 <body>
   <div class="appShell">
@@ -31,8 +31,10 @@
 
     <dialog id="listeningDialog" class="listeningDialog">
       <div class="listeningDialogHead"><div><p class="eyebrow">英語聞き取り検査</p><h2 id="listeningDialogTitle">リスニング情報を登録</h2></div><button id="listeningDialogClose" type="button" class="dialogClose" aria-label="閉じる">×</button></div>
-      <p class="listeningDialogNote">必要な場合だけ、URL、ユーザー名、パスワードを登録してください。登録しない場合は閉じて、別紙のリスニングQRコードをご利用ください。</p>
+      <p class="listeningDialogNote">学年ごとにURL、ユーザー名、パスワードを登録してください。保存すると、保存済み情報が下の一覧に表示されます。</p>
       <div id="listeningDialogRows"></div>
+      <p id="listeningSaveStatus" class="listeningSaveStatus" role="status"></p>
+      <div id="listeningSavedData" class="listeningSavedData"></div>
       <p class="listeningSecurityNote">QRコードには再生URLのみを登録します。ユーザー名とパスワードは受験票にも印刷されます。</p>
     </dialog>
 
@@ -48,8 +50,11 @@
         </div>
 
         <hr>
+        <div class="stepHeading"><span>2</span><div><h2>リスニング情報を入力</h2><p>受験票に印刷するリスニングURL・ユーザー名・パスワードを登録します。</p></div></div>
+        <button id="openListeningBtn" type="button" class="listeningOpenBtn">リスニング情報を入力・確認</button>
+        <hr>
         <div class="selectionHeadingRow">
-          <div class="stepHeading"><span>2</span><div><h2>印刷する生徒を選択</h2><p>B列が1の小4・小5・小6・中学生を表示します。</p></div></div>
+          <div class="stepHeading"><span>3</span><div><h2>印刷する生徒を選択</h2><p>B列が1の小4・小5・小6・中学生を表示します。</p></div></div>
           <button id="refreshTopBtn" type="button" class="smallBtn refreshTopBtn">生徒情報を更新</button>
         </div>
 
@@ -73,7 +78,7 @@
       </section>
 
       <aside class="panel previewPanel">
-        <div class="stepHeading"><span>3</span><div><h2>確認して印刷</h2><p>選択した生徒は1人につきA4用紙1枚です。</p></div></div>
+        <div class="stepHeading"><span>4</span><div><h2>確認して印刷</h2><p>選択した生徒は1人につきA4用紙1枚です。</p></div></div>
         <div id="ticketPreview" class="ticketPreview"></div>
         <button id="printBtn" type="button" class="printBtn" disabled>選択した受験票を印刷する</button>
         <p class="printNote">印刷画面では「A4」「倍率100%」を選んでください。</p>
@@ -83,6 +88,6 @@
   <div id="printArea" class="printArea" aria-hidden="true"></div>
   <script src="qrcode.js?v=1"></script>
   <script src="exam_ticket_print_fix.js?v=20260828-1"></script>
-  <script src="exam_ticket.js?v=20260819-18"></script>
+  <script src="exam_ticket.js?v=20261024-1"></script>
 </body>
 </html>
