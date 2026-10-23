@@ -83,6 +83,23 @@ function saveExamListeningSettings_(d){
   }finally{lock.releaseLock();}
 }
 
+function deleteExamListeningSettings_(d){
+  const year=Number(d.year),round=examRound_(d.round),grade=examGrade_(d.grade);
+  if(!Number.isInteger(year)||year<2026||year>2100)throw new Error('年度を正しく指定してください。');
+  if(['中１','中２','中３'].indexOf(grade)<0)throw new Error('学年は中１・中２・中３から選んでください。');
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const sh=ensureExamListeningSheet_(),last=sh.getLastRow(),rows=last>1?sh.getRange(2,1,last-1,3).getDisplayValues():[];
+    for(let i=rows.length-1;i>=0;i--){
+      if(Number(rows[i][0])===year&&Number(rows[i][1])===round&&examGrade_(rows[i][2])===grade){
+        sh.deleteRow(i+2);
+        return {ok:true,deleted:true,year:year,round:round,grade:grade};
+      }
+    }
+    return {ok:true,deleted:false,year:year,round:round,grade:grade};
+  }finally{lock.releaseLock();}
+}
+
 function ensureExamNumberSheet_(){
   const ss=SpreadsheetApp.openById(EXAM_MASTER_SS_ID_);let sh=ss.getSheetByName(EXAM_NUMBER_SHEET_);
   if(!sh){sh=ss.insertSheet(EXAM_NUMBER_SHEET_);sh.getRange(1,1,1,EXAM_NUMBER_HEADERS_.length).setValues([EXAM_NUMBER_HEADERS_]);sh.setFrozenRows(1);}
