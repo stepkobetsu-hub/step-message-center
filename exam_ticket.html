@@ -31,10 +31,9 @@
 
     <dialog id="listeningDialog" class="listeningDialog">
       <div class="listeningDialogHead"><div><p class="eyebrow">英語聞き取り検査</p><h2 id="listeningDialogTitle">リスニング情報を登録</h2></div><button id="listeningDialogClose" type="button" class="dialogClose" aria-label="閉じる">×</button></div>
-      <p class="listeningDialogNote">学年ごとにURL、ユーザー名、パスワードを登録してください。保存すると、保存済み情報が下の一覧に表示されます。</p>
+      <p class="listeningDialogNote">学年ごとにURL、ユーザー名、パスワードを登録してください。保存済み情報は、それぞれの学年の入力欄の下に表示されます。</p>
       <div id="listeningDialogRows"></div>
       <p id="listeningSaveStatus" class="listeningSaveStatus" role="status"></p>
-      <div id="listeningSavedData" class="listeningSavedData"></div>
       <p class="listeningSecurityNote">QRコードには再生URLのみを登録します。ユーザー名とパスワードは受験票にも印刷されます。</p>
     </dialog>
 
@@ -88,6 +87,6 @@
   <div id="printArea" class="printArea" aria-hidden="true"></div>
   <script src="qrcode.js?v=1"></script>
   <script src="exam_ticket_print_fix.js?v=20260828-1"></script>
-  <script src="exam_ticket.js?v=20261024-1"></script>
+  <script src="exam_ticket.js?v=20261024-2"></script>
 </body>
 </html>
